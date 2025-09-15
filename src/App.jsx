@@ -1,41 +1,83 @@
 import React, { useState, useEffect } from "react";
-import { io } from "socket.io-client";
-import { motion } from "framer-motion";
-import api from "./api";
+import axios from "axios";
 
-const socket = io(import.meta.env.VITE_BACKEND_URL);
+const backendUrl = import.meta.env.VITE_BACKEND_URL; // from Netlify environment
 
 export default function App() {
-  const [digit, setDigit] = useState(null);
-  const [prediction, setPrediction] = useState(null);
+  const [running, setRunning] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
+  // Check bot status on load
   useEffect(() => {
-    socket.on("tick", (data) => setDigit(data));
-    socket.on("prediction", (p) => setPrediction(p));
-    return () => {
-      socket.off("tick");
-      socket.off("prediction");
-    };
+    axios
+      .get(`${backendUrl}/status`)
+      .then((res) => setRunning(res.data.running))
+      .catch(() => setMessage("⚠️ Cannot connect to backend"));
   }, []);
 
+  const startBot = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.post(`${backendUrl}/start`);
+      setMessage(res.data.message);
+      setRunning(res.data.success);
+    } catch (err) {
+      setMessage("❌ Failed to start bot");
+    }
+    setLoading(false);
+  };
+
+  const stopBot = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.post(`${backendUrl}/stop`);
+      setMessage(res.data.message);
+      if (res.data.success) setRunning(false);
+    } catch (err) {
+      setMessage("❌ Failed to stop bot");
+    }
+    setLoading(false);
+  };
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-600 to-black text-white">
-      <h1 className="text-3xl font-bold mb-6">Astark SpeedBot</h1>
-      <div className="bg-gray-900 p-6 rounded-2xl shadow-xl w-80 text-center">
-        <motion.div
-          className="text-7xl font-bold mb-4"
-          animate={{ scale: [1, 1.2, 1] }}
-          transition={{ repeat: Infinity, duration: 1.5 }}
+    <div style={{ fontFamily: "Arial", padding: "2rem", textAlign: "center" }}>
+      <h1>⚡ ASTARK SpeedBot</h1>
+      <p>Status: {running ? "🟢 Running" : "🔴 Stopped"}</p>
+
+      <div style={{ marginTop: "1rem" }}>
+        <button
+          onClick={startBot}
+          disabled={running || loading}
+          style={{
+            padding: "10px 20px",
+            margin: "5px",
+            background: "green",
+            color: "white",
+            border: "none",
+            borderRadius: "5px",
+          }}
         >
-          {digit !== null ? digit : "-"}
-        </motion.div>
-        <p className="text-lg">
-          Prediction:{" "}
-          <span className="font-bold text-green-400">
-            {prediction !== null ? prediction : "Loading..."}
-          </span>
-        </p>
+          {loading ? "⏳ Starting..." : "🚀 Start Bot"}
+        </button>
+
+        <button
+          onClick={stopBot}
+          disabled={!running || loading}
+          style={{
+            padding: "10px 20px",
+            margin: "5px",
+            background: "red",
+            color: "white",
+            border: "none",
+            borderRadius: "5px",
+          }}
+        >
+          {loading ? "⏳ Stopping..." : "🛑 Stop Bot"}
+        </button>
       </div>
+
+      {message && <p style={{ marginTop: "1rem" }}>{message}</p>}
     </div>
   );
-}
+  }
