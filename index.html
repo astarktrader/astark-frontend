@@ -1,12 +1,195 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Astark Bot</title>
-  </head>
-  <body class="bg-gray-100">
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
-</html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ASTARK – Fast Deriv Bot</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: #f1f5f9;
+      text-align: center;
+      padding: 20px;
+    }
+    h1 {
+      color: #38bdf8;
+    }
+    #controls {
+      margin: 20px;
+    }
+    input, select, button {
+      margin: 5px;
+      padding: 8px;
+      font-size: 14px;
+    }
+    #log {
+      margin-top: 20px;
+      padding: 10px;
+      height: 200px;
+      overflow-y: scroll;
+      border: 1px solid #334155;
+      background: #1e293b;
+      text-align: left;
+    }
+    canvas {
+      background: #0f172a;
+      margin-top: 20px;
+      border: 1px solid #334155;
+    }
+  </style>
+</head>
+<body>
+  <h1>🚀 ASTARK – Ultra Fast Deriv Bot</h1>
+
+  <!-- ===== Controls Section ===== -->
+  <div id="controls">
+    <label>App ID: 
+      <input type="text" id="app_id" value="1089">
+    </label><br>
+
+    <label>API Token: 
+      <input type="password" id="token">
+    </label><br>
+
+    <label>Market:
+      <select id="market">
+        <option value="R_10">Volatility 10 Index</option>
+        <option value="R_25">Volatility 25 Index</option>
+        <option value="R_50">Volatility 50 Index</option>
+        <option value="R_75">Volatility 75 Index</option>
+        <option value="R_100">Volatility 100 Index</option>
+      </select>
+    </label><br>
+
+    <label>Stake: 
+      <input type="number" id="stake" value="1">
+    </label><br>
+
+    <label>Target Digit (leave blank for all): 
+      <input type="number" id="target_digit" min="0" max="9">
+    </label><br>
+
+    <button onclick="startBot()">▶ Start Bot</button>
+    <button onclick="stopBot()">⏹ Stop Bot</button>
+  </div>
+
+  <!-- ===== Chart + Log Section ===== -->
+  <canvas id="chart" width="600" height="150"></canvas>
+  <div id="log"></div>
+
+  <!-- ===== Script Section ===== -->
+  <script>
+    let ws, running = false, ctx;
+    let prices = [], pred1 = 0;
+
+    // === Logger ===
+    function log(msg) {
+      const logDiv = document.getElementById("log");
+      logDiv.innerHTML += msg + "<br>";
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    // === Chart Drawing ===
+    function drawChart() {
+      ctx.clearRect(0, 0, 600, 150);
+
+      // Price line
+      ctx.strokeStyle = "#38bdf8";
+      ctx.beginPath();
+      prices.forEach((p, i) => {
+        const x = i * 10;
+        const y = 150 - (p % 150);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      // Digit predictor marker
+      ctx.fillStyle = "lime";
+      ctx.beginPath();
+      ctx.arc(580, 75, 10, 0, 2 * Math.PI);
+      ctx.fill();
+
+      ctx.fillStyle = "#f1f5f9";
+      ctx.fillText(pred1, 575, 120);
+    }
+
+    // === Start Bot ===
+    function startBot() {
+      if (running) return;
+      running = true;
+      ctx = document.getElementById("chart").getContext("2d");
+
+      const app_id = document.getElementById("app_id").value;
+      const token = document.getElementById("token").value;
+      const market = document.getElementById("market").value;
+      const stake = parseFloat(document.getElementById("stake").value);
+      const targetDigit = document.getElementById("target_digit").value;
+
+      ws = new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=" + app_id);
+
+      ws.onopen = () => {
+        log("✅ Connected to Deriv API");
+        ws.send(JSON.stringify({ authorize: token }));
+      };
+
+      ws.onmessage = (msg) => {
+        const data = JSON.parse(msg.data);
+
+        if (data.msg_type === "authorize") {
+          log("🔑 Authorized, subscribing to ticks...");
+          ws.send(JSON.stringify({ ticks: market }));
+        }
+
+        if (data.msg_type === "tick") {
+          const price = data.tick.quote;
+          prices.push(price);
+          if (prices.length > 60) prices.shift();
+
+          // Mock digit predictor
+          pred1 = Math.floor(Math.random() * 10);
+
+          drawChart();
+
+          // Trade instantly if condition matches
+          if (targetDigit === "" || parseInt(targetDigit) === pred1) {
+            placeTrade(market, stake, pred1);
+          }
+        }
+
+        if (data.msg_type === "buy") {
+          log("✅ Trade Placed! Contract ID: " + data.buy.contract_id);
+        }
+      };
+    }
+
+    // === Place Trade ===
+    function placeTrade(market, stake, digit) {
+      const contract = {
+        buy: 1,
+        price: stake,
+        parameters: {
+          contract_type: "DIGITMATCH",
+          amount: stake,
+          basis: "stake",
+          symbol: market,
+          duration: 1,
+          duration_unit: "t",
+          currency: "USD",
+          barrier: digit
+        }
+      };
+      ws.send(JSON.stringify(contract));
+      log("📊 Trade sent for digit: " + digit);
+    }
+
+    // === Stop Bot ===
+    function stopBot() {
+      running = false;
+      if (ws) ws.close();
+      log("⏹ Bot stopped.");
+    }
+  </script>
+</body>
+          </html>
