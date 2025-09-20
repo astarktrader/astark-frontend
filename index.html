@@ -65,27 +65,20 @@ input,select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255
     <div style="margin-top:10px">
       <label>Market (synthetic volatility & variants)</label>
       <select id="market">
-        <!-- Main volatility indices -->
         <option value="R_10">Volatility 10 (R_10)</option>
         <option value="R_25">Volatility 25 (R_25)</option>
         <option value="R_50">Volatility 50 (R_50)</option>
         <option value="R_75">Volatility 75 (R_75)</option>
         <option value="R_100" selected>Volatility 100 (R_100)</option>
-
-        <!-- 1s/fast variants (naming may vary by region/account) -->
         <option value="1HZ10V">Vol 10 (1s)</option>
         <option value="1HZ25V">Vol 25 (1s)</option>
         <option value="1HZ50V">Vol 50 (1s)</option>
         <option value="1HZ75V">Vol 75 (1s)</option>
         <option value="1HZ100V">Vol 100 (1s)</option>
-
-        <!-- Boom & Crash -->
         <option value="BOOM1000">Boom 1000</option>
         <option value="BOOM500">Boom 500</option>
         <option value="CRASH1000">Crash 1000</option>
         <option value="CRASH500">Crash 500</option>
-
-        <!-- Other synthetic-like -->
         <option value="stpRNG">Step/Index sample</option>
       </select>
     </div>
@@ -111,6 +104,17 @@ input,select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255
         <option value="DIGITUNDER">Digit Under</option>
         <option value="CALL">Rise (CALL)</option>
         <option value="PUT">Fall (PUT)</option>
+      </select>
+    </div>
+
+    <div style="margin-top:10px">
+      <label>Target Digit (optional) — only trade when pred1 equals this (leave blank = trade every tick)</label>
+      <select id="targetDigit">
+        <option value="">(any)</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option>
       </select>
     </div>
 
@@ -216,7 +220,6 @@ input,select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255
 let ws = null;
 let connected = false;
 let authorized = false;
-let subscribed = false;
 let tickCount = 0;
 let digitCounts = Array.from({length:10},()=>0);
 let lastDigit = null, predA = null, predB = null;
@@ -262,7 +265,6 @@ function updateMarkersUI(){
   curDigitEl.innerText = lastDigit===null? '—' : lastDigit;
   pred1El.innerText = predA===null? '—' : predA;
   pred2El.innerText = predB===null? '—' : predB;
-  // move cursor near pred1 element
   try{
     const rect = pred1El.getBoundingClientRect();
     if(rect){
@@ -282,16 +284,19 @@ function connectWS(){
   wsStatusEl.innerText = 'connecting';
 
   ws.onopen = ()=> {
-    connected = true;
+    uiLog('WebSocket connected');
     wsStateEl.innerText = 'connected';
     wsStatusEl.innerText = 'connected';
-    uiLog('WebSocket connected');
+    // if user already provided token, send authorize
+    const token = (document.getElementById('token').value||'').trim();
+    if(token) {
+      try{ ws.send(JSON.stringify({ authorize: token })); }catch(e){}
+    }
   };
 
   ws.onclose = ()=> {
     connected = false;
     authorized = false;
-    subscribed = false;
     wsStateEl.innerText = 'closed';
     wsStatusEl.innerText = 'closed';
     authEl.innerText = 'no';
@@ -302,7 +307,7 @@ function connectWS(){
 
   ws.onmessage = (evt)=>{
     let data;
-    try{ data = JSON.parse(evt.data);}catch(e){ uiLog('WS parse error'); return; }
+    try{ data = JSON.parse(evt.data); }catch(e){ uiLog('WS parse error'); return; }
 
     if(data.msg_type === 'authorize'){
       if(data.authorize && data.authorize.loginid){
@@ -321,43 +326,35 @@ function connectWS(){
     }
 
     if(data.msg_type === 'buy' && data.buy){
-      // buy response contains contract_id usually under .buy.contract_id or .buy.transaction_id depending
       const b = data.buy;
-      const cid = b.contract_id || b.transaction_id || (b.buy_id || 'unknown');
+      const cid = b.contract_id || b.transaction_id || b.buy_id || ('cid_' + Date.now());
       const symbol = b.symbol || document.getElementById('market').value;
-      const amount = b.buy_price ?? b.buy_price ?? b.price ?? b.purchase_price ?? b.buy_price;
+      const amount = (b.buy_price ?? b.price ?? b.purchase_price) || (b.amount || 0);
       const ctype = b.contract_type || (b.longcode ? (b.longcode.split(' ')[0]) : 'DIGIT');
-      // add to open trades
-      openTrades[cid] = { contract_id: cid, contract_type: ctype, barrier: b.barrier ?? b.prediction ?? null, amount: amount, symbol: symbol };
+      const barrier = b.barrier ?? null;
+      openTrades[cid] = { contract_id: cid, contract_type: ctype, barrier: barrier, amount: amount, symbol: symbol };
       addOpenTradeRow(openTrades[cid]);
-      // subscribe for contract updates
       try{ ws.send(JSON.stringify({ proposal_open_contract:1, contract_id: cid })); }catch(e){}
       uiLog('Buy response received, cid='+cid);
     }
 
     if(data.msg_type === 'proposal_open_contract' && data.proposal_open_contract){
       const poc = data.proposal_open_contract;
-      // if contract is sold -> closed
       const cid = poc.contract_id;
       if(poc.is_sold){
         const payout = (typeof poc.profit !== 'undefined') ? poc.profit : (poc.payout ?? 0);
         const status = poc.status || 'sold';
-        const contract_info = { contract_id: cid, contract_type: poc.contract_type, barrier: poc.barrier ?? poc.prediction ?? null };
+        const contract_info = { contract_id: cid, contract_type: poc.contract_type, barrier: poc.barrier ?? null };
         moveToClosed(contract_info, { status, payout });
         uiLog(`Contract closed: ${cid} status=${status} payout=${payout}`);
-      } else {
-        // update open trade details if needed
-        // no-op for now
       }
     }
 
-    if(data.error){
-      uiLog('API Error: ' + JSON.stringify(data.error));
-    }
+    if(data.error) uiLog('API Error: ' + JSON.stringify(data.error));
   };
 }
 
-/* ========== Tick handling (predictors + auto-trade) ========== */
+/* ========== Tick handling (predictors + controlled auto-trade) ========== */
 function handleTick(tick){
   const quote = String(tick.quote);
   const last = Number(quote.slice(-1));
@@ -365,18 +362,14 @@ function handleTick(tick){
   tickCount++;
   digitCounts[last] = (digitCounts[last]||0) + 1;
 
-  // Basic predictor examples:
-  // predA: naive next-digit predictor (last+1 mod10) — replace with your model later
+  // Keep the predictor logic as before (simple demo predictor)
   predA = (last + 1) % 10;
-  // predB: what predA would predict next
   predB = (predA + 1) % 10;
 
   updateDigitStatsUI();
   updateMarkersUI();
 
-  // Auto trade when botRunning: immediate, subject to throttle and optional target digit
   if(botRunning){
-    // throttle
     const throttle = Number(document.getElementById('throttle').value) || 0;
     const now = Date.now();
     if(throttle > 0 && (now - botLastBuyTs) < throttle){
@@ -384,40 +377,46 @@ function handleTick(tick){
       return;
     }
 
-    // Optional target digit filter (if user adds one later). For now we trade according to selected contract type:
+    // Target digit filter: trade only when predA equals target (if target set)
+    const targetRaw = document.getElementById('targetDigit').value;
+    const target = (targetRaw === '' ? null : Number(targetRaw));
+
+    if(target !== null){
+      // only buy when predA equals target
+      if(predA !== target){
+        uiLog(`Skipped — pred1 (${predA}) != target (${target})`);
+        return;
+      }
+    }
+
+    // If target is null, no filter — behave as before (trade every tick)
     const mode = document.getElementById('contractType').value;
     autoPlaceByMode(mode, last, predA);
-
     botLastBuyTs = now;
   }
 }
 
-/* ========== Auto place function: picks correct parameters per contract type ========== */
+/* ========== Auto place function ========== */
 function autoPlaceByMode(mode, last, predicted){
   const stake = Number(document.getElementById('stake').value) || 1;
   const duration = Number(document.getElementById('duration').value) || 1;
   const symbol = document.getElementById('market').value;
 
-  // digit contracts: use 'barrier' with predicted digit
   if(mode === 'DIGITMATCH' || mode === 'DIGITDIFF' || mode === 'DIGITEVEN' || mode === 'DIGITODD' || mode === 'DIGITOVER' || mode === 'DIGITUNDER'){
-    // Note: DIGITOVER/DIGITUNDER use barrier as threshold; still send barrier
     placeBuy({ contract_type: mode, symbol, amount: stake, duration, duration_unit:'t', barrier:String(predicted) });
     return;
   }
 
-  // CALL/PUT: no barrier; choose direction using predicted vs last
   if(mode === 'CALL' || mode === 'PUT'){
-    // Simple rule: if predicted > last => CALL else PUT (you can change strategy)
     const choice = (predicted > last) ? 'CALL' : 'PUT';
     placeBuy({ contract_type: choice, symbol, amount: stake, duration, duration_unit:'t' });
     return;
   }
 
-  // fallback
   placeBuy({ contract_type: 'DIGITMATCH', symbol, amount: stake, duration, duration_unit:'t', barrier:String(predicted) });
 }
 
-/* ========== Buy helper that sends correct payload (barrier for digit types) ========== */
+/* ========== placeBuy (correct payload using barrier for digits) ========== */
 function placeBuy({ contract_type, symbol, amount, duration, duration_unit='t', barrier }){
   if(!ws || ws.readyState !== 1){
     uiLog('WS not ready for buy');
@@ -434,14 +433,11 @@ function placeBuy({ contract_type, symbol, amount, duration, duration_unit='t', 
     symbol
   };
   if(typeof barrier !== 'undefined' && barrier !== null){
-    // correct field name for digit contracts
     params.barrier = String(barrier);
   }
-
   const buyReq = { buy:1, subscribe:1, price: params.amount, parameters: params };
 
   try{
-    // ensure authorization if user provided token
     const token = (document.getElementById('token').value||'').trim();
     if(token && !authorized){
       try{ ws.send(JSON.stringify({ authorize: token })); }catch(e){}
@@ -457,26 +453,22 @@ function placeBuy({ contract_type, symbol, amount, duration, duration_unit='t', 
 function addOpenTradeRow(tr){
   const row = document.createElement('tr');
   row.id = 'op_' + tr.contract_id;
-  row.innerHTML = `<td>${tr.contract_id}</td><td>${tr.contract_type || tr.contract_type}</td><td>${tr.barrier ?? ''}</td><td>${tr.amount ?? ''}</td>`;
+  row.innerHTML = `<td>${tr.contract_id}</td><td>${tr.contract_type}</td><td>${tr.barrier ?? ''}</td><td>${tr.amount ?? ''}</td>`;
   openTradesBody.prepend(row);
   openTrades[tr.contract_id] = tr;
 }
 function moveToClosed(tr, result){
-  // remove open if present
   const r = document.getElementById('op_' + tr.contract_id);
   if(r) r.remove();
-  // add to closed
   const row = document.createElement('tr');
   const payout = Number(result.payout) || 0;
   const status = result.status || 'sold';
   row.innerHTML = `<td>${tr.contract_id}</td><td>${tr.contract_type}</td><td>${status}</td><td style="color:${payout>=0? 'var(--good)':'var(--bad)'}">${payout}</td>`;
   closedTradesBody.prepend(row);
 
-  // update running balance
   runningBalance += payout;
   balanceEl.textContent = `$${runningBalance.toFixed(2)}`;
   balanceEl.style.color = runningBalance >= 0 ? 'var(--good)' : 'var(--bad)';
-  // clean open storage
   delete openTrades[tr.contract_id];
 }
 
@@ -498,38 +490,32 @@ function manualTrade(mode){
     const pick = predA ?? 0;
     placeBuy({ contract_type: mode, symbol, amount: stake, duration, duration_unit: 't', barrier: String(pick) });
   } else {
-    // CALL/PUT
     placeBuy({ contract_type: mode, symbol, amount: stake, duration, duration_unit: 't' });
   }
 }
 
-/* ========== Start/Stop & misc UI ========== */
+/* ========== Start/Stop & controls ========== */
 document.getElementById('startBtn').addEventListener('click', ()=>{
   if(!ws || ws.readyState !== 1) connectWS();
   const token = (document.getElementById('token').value||'').trim();
   if(token) { try{ ws.send(JSON.stringify({ authorize: token })); }catch(e){} }
-  // subscribe ticks for currently selected market
   const market = document.getElementById('market').value;
-  try{ ws.send(JSON.stringify({ ticks: market, subscribe: 1 })); liveMarketEl.innerText = market; subscribed = true;}catch(e){}
+  try{ ws.send(JSON.stringify({ ticks: market, subscribe: 1 })); liveMarketEl.innerText = market; }catch(e){}
   botRunning = true; botStateEl.innerText = 'running';
-  uiLog('Bot started (speed mode — immediate trades)');
+  uiLog('Bot started (speed mode — immediate trades subject to target & throttle)');
 });
 
 document.getElementById('stopBtn').addEventListener('click', ()=>{
   botRunning = false; botStateEl.innerText = 'stopped';
   uiLog('Bot stopped by user');
-  // keep ws open for monitoring; do not auto-close
 });
 
+/* ========== misc UI ========== */
 document.getElementById('clearLogs').addEventListener('click', ()=> logsEl.innerHTML='');
 document.getElementById('snapshot').addEventListener('click', ()=> uiLog(`Snapshot ticks:${tickCount} last:${lastDigit} pred1:${predA} pred2:${predB}`));
-
-/* ========== init UI ========== */
 updateDigitStatsUI();
 updateMarkersUI();
 uiLog('UI ready — paste demo token and press Start Bot.');
-
-/* ========== connect on first load (optional) ========== */
 connectWS();
 </script>
 </body>
