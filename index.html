@@ -1,186 +1,190 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ASTARK SpeedBot (Real)</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Deriv Digit Bot</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #121212; color: #fff; text-align: center; }
-    h1 { color: #4CAF50; }
-    select, button, input { padding: 10px; margin: 10px; font-size: 16px; }
-    #digit-board { display: flex; justify-content: center; margin-top: 20px; }
-    .digit { width: 30px; height: 30px; margin: 5px; border: 1px solid #555; display: flex; align-items: center; justify-content: center; }
-    #prediction-marker { position: relative; top: -10px; color: yellow; font-weight: bold; }
-    #open-trades, #closed-trades { margin-top: 20px; text-align: left; max-width: 400px; margin-left: auto; margin-right: auto; }
+    body { font-family: Arial, sans-serif; background:#111; color:#eee; text-align:center; }
+    .controls { margin:20px auto; padding:20px; background:#222; border-radius:8px; display:inline-block; }
+    label { display:block; margin:8px 0 4px; }
+    select, input { padding:6px; margin-bottom:10px; width:200px; }
+    button { padding:10px 20px; margin:5px; background:#0af; border:none; color:#fff; cursor:pointer; border-radius:4px; }
+    button:hover { background:#09c; }
+    #digitChart { width:90%; height:250px; margin:20px auto; background:#000; position:relative; }
+    .marker { position:absolute; width:2px; height:100%; background:red; left:0; top:0; }
+    #trades { margin:20px auto; width:90%; max-width:600px; background:#222; padding:15px; border-radius:6px; text-align:left; }
+    #trades h3 { margin-top:0; }
+    .trade-open { color:#0f0; }
+    .trade-closed { color:#f33; }
+    table { margin:20px auto; border-collapse:collapse; background:#222; }
+    th, td { padding:6px 10px; border:1px solid #444; }
+    .highlight { background:#044; font-weight:bold; color:#0f0; }
   </style>
 </head>
 <body>
-  <h1>⚡ ASTARK SpeedBot (Real)</h1>
+  <h1>Deriv Digit Bot</h1>
 
-  <label>API Token:</label>
-  <input type="password" id="apiToken" placeholder="Enter Deriv API token" style="width:300px;">
-  <br>
+  <div class="controls">
+    <label>Market:</label>
+    <select id="market">
+      <option value="R_10">Volatility 10</option>
+      <option value="R_25">Volatility 25</option>
+      <option value="R_50">Volatility 50</option>
+      <option value="R_75">Volatility 75</option>
+      <option value="R_100">Volatility 100</option>
+      <option value="R_10S">Volatility 10 (1s)</option>
+      <option value="R_25S">Volatility 25 (1s)</option>
+      <option value="R_50S">Volatility 50 (1s)</option>
+      <option value="R_75S">Volatility 75 (1s)</option>
+      <option value="R_100S">Volatility 100 (1s)</option>
+    </select>
 
-  <label>Choose Market:</label>
-  <select id="market">
-    <option value="R_10">Volatility 10</option>
-    <option value="R_25">Volatility 25</option>
-    <option value="R_50">Volatility 50</option>
-    <option value="R_75">Volatility 75</option>
-    <option value="R_100">Volatility 100</option>
-  </select>
+    <label>Contract Type:</label>
+    <select id="contractType">
+      <option value="DIGITMATCH">Digit Match</option>
+      <option value="DIGITDIFFERS">Digit Differs</option>
+      <option value="DIGITODD">Digit Odd</option>
+      <option value="DIGITEVEN">Digit Even</option>
+      <option value="OVER">Digit Over</option>
+      <option value="UNDER">Digit Under</option>
+      <option value="CALL">Rise</option>
+      <option value="PUT">Fall</option>
+    </select>
 
-  <br>
-  <button id="start">▶️ Start Bot</button>
-  <button id="stop">⏹️ Stop Bot</button>
+    <label>Stake ($):</label>
+    <input type="number" id="stake" value="1" min="0.35" step="0.01"/>
 
-  <div id="digit-board"></div>
-  <div id="prediction-marker">⬆</div>
+    <label>Predicted Digit:</label>
+    <input type="number" id="predictedDigit" min="0" max="9" placeholder="0-9 (only for digit trades)"/>
 
-  <h2>📂 Open Trades</h2>
-  <div id="open-trades"></div>
+    <br>
+    <button onclick="startBot()">Start Bot</button>
+    <button onclick="stopBot()">Stop Bot</button>
+  </div>
 
-  <h2>✅ Closed Trades</h2>
-  <div id="closed-trades"></div>
+  <div id="digitChart">
+    <div class="marker" id="digitMarker"></div>
+  </div>
+
+  <!-- Digit frequency table -->
+  <table>
+    <thead>
+      <tr><th>Digit</th><th>Count</th><th>Percent</th></tr>
+    </thead>
+    <tbody id="digitFreq"></tbody>
+  </table>
+
+  <div id="trades">
+    <h3>Trades</h3>
+    <ul id="tradeList"></ul>
+  </div>
 
   <script>
-    let ws;
-    let running = false;
-    let digitStats = Array(10).fill(0);
-    let tickHistory = [];
-    const MAX_HISTORY = 100;
+    const app_id = 1089; // replace with your own App ID
+    const token = "";    // <<< PUT YOUR API TOKEN HERE
+    let ws, currentMarket, running = false;
+    let digitCounts = Array(10).fill(0), totalTicks = 0;
 
-    const openTrades = [];
-    const closedTrades = [];
-    const contracts = {}; // Track contract IDs
-
-    const digitBoard = document.getElementById("digit-board");
-    for (let i = 0; i < 10; i++) {
-      const div = document.createElement("div");
-      div.className = "digit";
-      div.innerText = i;
-      digitBoard.appendChild(div);
+    function connect() {
+      ws = new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=" + app_id);
+      ws.onopen = () => { if (token) ws.send(JSON.stringify({ authorize: token })); };
+      ws.onmessage = handleMessage;
     }
 
-    document.getElementById("start").onclick = () => {
-      if (running) return;
-      running = true;
+    function handleMessage(msg) {
+      const data = JSON.parse(msg.data);
 
-      const market = document.getElementById("market").value;
-      const token = document.getElementById("apiToken").value;
-      if (!token) {
-        alert("Enter your Deriv API token first!");
-        running = false;
-        return;
+      if (data.tick) {
+        const lastDigit = parseInt(data.tick.quote.toString().slice(-1));
+        updateMarker(lastDigit);
+        updateFrequencies(lastDigit);
       }
 
-      ws = new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=1089");
+      if (data.buy) {
+        logTrade("Opened " + data.buy.contract_id, "open");
+      }
+      if (data.proposal_open_contract) {
+        const poc = data.proposal_open_contract;
+        if (poc.status === "sold") {
+          logTrade("Closed " + poc.contract_id + " (" + poc.profit + ")", "closed");
+        }
+      }
+    }
 
-      ws.onopen = () => {
-        ws.send(JSON.stringify({ authorize: token }));
+    function updateMarker(digit) {
+      const marker = document.getElementById("digitMarker");
+      marker.style.left = (digit * 10) + "%";
+    }
+
+    function updateFrequencies(digit) {
+      digitCounts[digit]++;
+      totalTicks++;
+      const tbody = document.getElementById("digitFreq");
+      tbody.innerHTML = "";
+
+      // find highest %
+      let maxPct = 0, maxDigit = null;
+      for (let i=0; i<10; i++) {
+        const pct = totalTicks ? ((digitCounts[i]/totalTicks)*100).toFixed(1) : 0;
+        if (pct > maxPct) { maxPct = pct; maxDigit = i; }
+      }
+
+      // render rows with highlight
+      for (let i=0; i<10; i++) {
+        const pct = totalTicks ? ((digitCounts[i]/totalTicks)*100).toFixed(1) : 0;
+        const rowClass = (i === maxDigit) ? "highlight" : "";
+        tbody.innerHTML += `<tr class="${rowClass}"><td>${i}</td><td>${digitCounts[i]}</td><td>${pct}%</td></tr>`;
+      }
+    }
+
+    function logTrade(text, status) {
+      const li = document.createElement("li");
+      li.textContent = text;
+      li.className = status === "open" ? "trade-open" : "trade-closed";
+      document.getElementById("tradeList").appendChild(li);
+    }
+
+    function placeTrade(contractType, stake, predictedDigit = null) {
+      const params = {
+        contract_type: contractType,
+        duration: 1,
+        duration_unit: "t",
+        basis: "stake",
+        currency: "USD",
+        symbol: currentMarket,
+        amount: stake
       };
+      if (predictedDigit !== null && predictedDigit !== "") {
+        params.barrier = predictedDigit;
+      }
+      const contract = { buy: 1, price: stake, parameters: params };
+      ws.send(JSON.stringify(contract));
+    }
 
+    function tradeOnNextTick(contractType, stake, predictedDigit = null) {
+      ws.send(JSON.stringify({ ticks: currentMarket }));
       ws.onmessage = (msg) => {
         const data = JSON.parse(msg.data);
-
-        if (data.msg_type === "authorize") {
-          ws.send(JSON.stringify({ ticks: market, subscribe: 1 }));
+        if (data.tick) {
+          placeTrade(contractType, stake, predictedDigit);
         }
-
-        if (data.msg_type === "tick") {
-          handleTick(data.tick);
-        }
-
-        if (data.msg_type === "buy") {
-          const contract_id = data.buy.contract_id;
-          contracts[contract_id] = { id: contract_id, digit: data.buy.starting_spot, entry: data.buy.buy_price };
-          openTrades.push({ contract_id, digit: contracts[contract_id].digit, entry: contracts[contract_id].entry, time: new Date().toLocaleTimeString() });
-          renderTrades();
-
-          ws.send(JSON.stringify({ proposal_open_contract: 1, contract_id, subscribe: 1 }));
-        }
-
-        if (data.msg_type === "proposal_open_contract") {
-          const poc = data.proposal_open_contract;
-          if (poc.is_sold) {
-            closedTrades.push({ digit: poc.entry_spot, entry: poc.buy_price, result: poc.profit >= 0 ? "WIN ✅" : "LOSE ❌", time: new Date().toLocaleTimeString() });
-            openTrades.splice(openTrades.findIndex(t => t.contract_id === poc.contract_id), 1);
-            renderTrades();
-          }
-        }
+        handleMessage(msg);
       };
-    };
-
-    document.getElementById("stop").onclick = () => {
-      running = false;
-      if (ws) ws.close();
-    };
-
-    function handleTick(tick) {
-      const price = tick.quote;
-      const lastDigit = parseInt(price.toString().slice(-1));
-
-      tickHistory.push(lastDigit);
-      if (tickHistory.length > MAX_HISTORY) {
-        const removed = tickHistory.shift();
-        digitStats[removed]--;
-      }
-      digitStats[lastDigit]++;
-
-      const bestDigit = updatePredictionMarker();
-
-      if (running) {
-        placeTrade(bestDigit);
-      }
     }
 
-    function updatePredictionMarker() {
-      let bestDigit = 0;
-      let maxCount = -1;
-
-      for (let d = 0; d < 10; d++) {
-        if (digitStats[d] > maxCount) {
-          maxCount = digitStats[d];
-          bestDigit = d;
-        }
-      }
-
-      const marker = document.getElementById("prediction-marker");
-      marker.style.left = `${bestDigit * 35}px`;
-      marker.innerText = "⬆ " + bestDigit;
-
-      return bestDigit;
+    function startBot() {
+      if (!ws || ws.readyState !== 1) connect();
+      currentMarket = document.getElementById("market").value;
+      const contractType = document.getElementById("contractType").value;
+      const stake = parseFloat(document.getElementById("stake").value);
+      const predictedDigit = document.getElementById("predictedDigit").value || null;
+      running = true;
+      tradeOnNextTick(contractType, stake, predictedDigit);
     }
 
-    function placeTrade(predictedDigit) {
-      const market = document.getElementById("market").value;
-
-      const proposal = {
-        buy: 1,
-        subscribe: 1,
-        price: 10, // stake = $10
-        parameters: {
-          contract_type: "DIGITMATCH",
-          symbol: market,
-          amount: 10,
-          basis: "stake",
-          currency: "USD",
-          duration: 1,
-          duration_unit: "t",
-          barrier: predictedDigit
-        }
-      };
-
-      ws.send(JSON.stringify(proposal));
-    }
-
-    function renderTrades() {
-      const openDiv = document.getElementById("open-trades");
-      openDiv.innerHTML = openTrades.map(t => `<p>ID: ${t.contract_id} | Entry: ${t.entry} | Time: ${t.time}</p>`).join("");
-
-      const closedDiv = document.getElementById("closed-trades");
-      closedDiv.innerHTML = closedTrades.map(t => `<p>Digit: ${t.digit} | Entry: ${t.entry} | ${t.result} | Time: ${t.time}</p>`).join("");
-    }
+    function stopBot() { running = false; if (ws) ws.close(); }
+    connect();
   </script>
 </body>
-</html>
+        </html>
