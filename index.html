@@ -3,511 +3,534 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>ASTARK — SpeedBot (Frontend-only)</title>
+<title>ASTARK — Full SpeedBot (All Volatility & Predictors)</title>
 <style>
-  :root{
-    --bg:#071226; --panel:#0f2433; --muted:#9aa7b1; --accent:#00bfff; --text:#e6eef8;
-    --success:#2ee6a8; --warn:#f59e0b; --danger:#ff6b6b;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,Arial,Helvetica,sans-serif}
-  header{background:linear-gradient(90deg,#071b2e,#0a2b48);padding:14px 18px;display:flex;justify-content:space-between;align-items:center}
-  .brand{font-weight:800;color:var(--accent);font-size:18px}
-  .container{padding:16px;max-width:1100px;margin:20px auto;display:grid;grid-template-columns:320px 1fr 340px;gap:14px}
-  .card{background:var(--panel);padding:14px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.25)}
-  label{display:block;color:var(--muted);font-weight:700;margin-bottom:6px}
-  input,select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:#071019;color:var(--text)}
-  .row{display:flex;gap:8px;align-items:center}
-  .btn{padding:10px 12px;border-radius:8px;border:none;cursor:pointer;font-weight:700}
-  .primary{background:linear-gradient(90deg,var(--accent),#0077ff);color:#071123}
-  .danger{background:var(--danger);color:#071123}
-  .muted{color:var(--muted);font-size:13px}
-  .center-panel{display:flex;flex-direction:column;gap:12px}
-  .markers{display:flex;gap:18px;align-items:center;justify-content:center}
-  .big-circle{width:120px;height:120px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:44px}
-  .blue{background:var(--accent);color:#071123;box-shadow:0 12px 30px rgba(0,191,255,0.08)}
-  .amber{background:var(--warn);color:#071123}
-  .pink{background:var(--danger);color:#071123}
-  .cursor{position:fixed;width:14px;height:14px;border-radius:50%;background:#38bdf8;pointer-events:none;box-shadow:0 0 18px rgba(56,189,248,0.85);transform:translate(-50%,-50%);transition:transform .15s linear}
-  table{width:100%;border-collapse:collapse;margin-top:8px}
-  th,td{padding:8px;border:1px solid rgba(255,255,255,0.03);text-align:center;font-family:monospace}
-  th{background:#072032;color:var(--text)}
-  .highlight{background:var(--accent);color:#071123;font-weight:800}
-  .logs{max-height:260px;overflow:auto;font-family:monospace;font-size:13px}
-  .small{font-size:13px;color:var(--muted)}
-  footer{padding:10px 18px;text-align:center;color:var(--muted);font-size:13px}
-  @media (max-width:980px){
-    .container{grid-template-columns:1fr; padding:10px}
-    .cursor{display:none}
-  }
+:root{
+  --bg:#071226; --panel:#0f2433; --muted:#9aa7b1; --accent:#00bfff; --text:#e6eef8;
+  --good:#2ee6a8; --bad:#ff6b6b;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,Arial,Helvetica,sans-serif}
+header{background:linear-gradient(90deg,#071b2e,#0a2b48);padding:12px 18px;display:flex;justify-content:space-between;align-items:center}
+.brand{font-weight:800;color:var(--accent);font-size:18px}
+.container{padding:16px;max-width:1200px;margin:18px auto;display:grid;grid-template-columns:320px 1fr 360px;gap:14px}
+.card{background:var(--panel);padding:14px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.25)}
+label{display:block;color:var(--muted);font-weight:700;margin-bottom:6px}
+input,select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:#071019;color:var(--text)}
+.row{display:flex;gap:8px;align-items:center}
+.btn{padding:10px 12px;border-radius:8px;border:none;cursor:pointer;font-weight:700}
+.primary{background:linear-gradient(90deg,var(--accent),#0077ff);color:#071123}
+.danger{background:var(--bad);color:#071123}
+.secondary{background:#1e293b;color:#fff}
+.small{font-size:13px;color:var(--muted)}
+.center-panel{display:flex;flex-direction:column;gap:12px}
+.markers{display:flex;gap:18px;align-items:center;justify-content:center}
+.big-circle{width:120px;height:120px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:44px}
+.blue{background:var(--accent);color:#071123;box-shadow:0 12px 30px rgba(0,191,255,0.08)}
+.amber{background:#f59e0b;color:#071123}
+.pink{background:var(--bad);color:#071123}
+.cursor{position:fixed;width:16px;height:16px;border-radius:50%;background:#38bdf8;pointer-events:none;box-shadow:0 0 18px rgba(56,189,248,0.85);transform:translate(-50%,-50%);transition:transform .15s linear;z-index:9999}
+.table{width:100%;border-collapse:collapse;margin-top:8px;color:var(--text)}
+.table th,.table td{padding:8px;border:1px solid rgba(255,255,255,0.03);text-align:center;font-family:monospace;font-size:13px}
+.table th{background:#072032}
+.highlight{background:var(--accent);color:#071123;font-weight:800}
+.logs{max-height:260px;overflow:auto;font-family:monospace;font-size:13px;margin-top:8px}
+@media (max-width:980px){.container{grid-template-columns:1fr;padding:12px}.cursor{display:none}}
 </style>
 </head>
 <body>
-  <header>
-    <div class="brand">ASTARK — Speed Trading (Frontend)</div>
-    <div class="small">Frontend-only demo — use DEMO token</div>
-  </header>
+<header>
+  <div class="brand">ASTARK — Speed Trading (Frontend)</div>
+  <div class="small">Frontend demo — use DERIV DEMO token</div>
+</header>
 
-  <div class="container">
-    <!-- Left: Controls -->
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div style="font-weight:800">Controls</div>
-        <div class="small">Status: <span id="status-ws">connecting...</span></div>
-      </div>
+<div class="container">
+  <!-- LEFT: Controls -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-weight:800">Controls</div>
+      <div class="small">WS: <span id="wsState">connecting...</span></div>
+    </div>
 
-      <div style="margin-top:12px">
-        <label>Deriv App ID (1089 is public)</label>
-        <input id="appId" value="1089" />
-      </div>
+    <div style="margin-top:12px">
+      <label>Deriv App ID</label>
+      <input id="appId" value="1089" />
+    </div>
 
-      <div style="margin-top:10px">
-        <label>Deriv API Token (DEMO recommended)</label>
-        <input id="token" placeholder="Paste demo token here (keeps client-only)" />
-      </div>
+    <div style="margin-top:10px">
+      <label>API Token (DEMO recommended)</label>
+      <input id="token" placeholder="Paste DERIV demo token here" />
+    </div>
 
-      <div style="margin-top:10px">
-        <label>Market</label>
-        <select id="market">
-          <!-- Volatility continuous -->
-          <option value="R_10">Volatility 10 (R_10)</option>
-          <option value="R_25">Volatility 25 (R_25)</option>
-          <option value="R_50">Volatility 50 (R_50)</option>
-          <option value="R_75">Volatility 75 (R_75)</option>
-          <option value="R_100" selected>Volatility 100 (R_100)</option>
+    <div style="margin-top:10px">
+      <label>Market (synthetic volatility & variants)</label>
+      <select id="market">
+        <!-- Main volatility indices -->
+        <option value="R_10">Volatility 10 (R_10)</option>
+        <option value="R_25">Volatility 25 (R_25)</option>
+        <option value="R_50">Volatility 50 (R_50)</option>
+        <option value="R_75">Volatility 75 (R_75)</option>
+        <option value="R_100" selected>Volatility 100 (R_100)</option>
 
-          <!-- 1s variants (format used on Deriv sometimes varies) -->
-          <option value="1HZ10V">Vol 10 (1s)</option>
-          <option value="1HZ25V">Vol 25 (1s)</option>
-          <option value="1HZ50V">Vol 50 (1s)</option>
-          <option value="1HZ75V">Vol 75 (1s)</option>
-          <option value="1HZ100V">Vol 100 (1s)</option>
+        <!-- 1s/fast variants (naming may vary by region/account) -->
+        <option value="1HZ10V">Vol 10 (1s)</option>
+        <option value="1HZ25V">Vol 25 (1s)</option>
+        <option value="1HZ50V">Vol 50 (1s)</option>
+        <option value="1HZ75V">Vol 75 (1s)</option>
+        <option value="1HZ100V">Vol 100 (1s)</option>
 
-          <!-- Boom/Crash samples -->
-          <option value="BOOM1000">Boom 1000</option>
-          <option value="BOOM500">Boom 500</option>
-          <option value="CRASH1000">Crash 1000</option>
-          <option value="CRASH500">Crash 500</option>
-        </select>
-      </div>
+        <!-- Boom & Crash -->
+        <option value="BOOM1000">Boom 1000</option>
+        <option value="BOOM500">Boom 500</option>
+        <option value="CRASH1000">Crash 1000</option>
+        <option value="CRASH500">Crash 500</option>
 
-      <div style="margin-top:10px">
-        <label>Stake (USD)</label>
-        <input id="stake" type="number" min="0.1" step="0.1" value="1" />
-      </div>
+        <!-- Other synthetic-like -->
+        <option value="stpRNG">Step/Index sample</option>
+      </select>
+    </div>
 
-      <div style="margin-top:10px">
-        <label>Duration (ticks)</label>
-        <input id="duration" type="number" min="1" value="1" />
-      </div>
+    <div style="margin-top:10px">
+      <label>Stake (USD)</label>
+      <input id="stake" type="number" min="0.1" step="0.1" value="1" />
+    </div>
 
-      <div style="margin-top:10px">
-        <label>Auto Trading Mode (what bot places)</label>
-        <select id="autoMode">
-          <option value="DIGITMATCH">Digit Match (use predicted digit)</option>
-          <option value="CALLPUT">Call/Put (pred1 > last -> CALL)</option>
-          <option value="DIGITEVENODD">Even/Odd (pred1 parity)</option>
-        </select>
-      </div>
+    <div style="margin-top:10px">
+      <label>Duration (ticks)</label>
+      <input id="duration" type="number" min="1" value="1" />
+    </div>
 
-      <div style="margin-top:10px">
-        <label>Target Digit (leave blank = any)</label>
-        <input id="targetDigit" type="number" min="0" max="9" placeholder="e.g. 7" />
-      </div>
+    <div style="margin-top:10px">
+      <label>Contract Type (manual / auto)</label>
+      <select id="contractType">
+        <option value="DIGITMATCH">Digit Match</option>
+        <option value="DIGITDIFF">Digit Differs</option>
+        <option value="DIGITEVEN">Digit Even</option>
+        <option value="DIGITODD">Digit Odd</option>
+        <option value="DIGITOVER">Digit Over</option>
+        <option value="DIGITUNDER">Digit Under</option>
+        <option value="CALL">Rise (CALL)</option>
+        <option value="PUT">Fall (PUT)</option>
+      </select>
+    </div>
 
-      <div style="margin-top:10px">
-        <label>Throttle (ms) — 0 = fastest (risky)</label>
-        <input id="throttle" type="number" min="0" value="0" />
-      </div>
+    <div style="margin-top:10px">
+      <label>Throttle (ms) — 0 = fastest</label>
+      <input id="throttle" type="number" min="0" value="0" />
+    </div>
 
-      <div style="display:flex;gap:8px;margin-top:12px">
-        <button id="btnStart" class="btn primary">▶ Start Bot</button>
-        <button id="btnStop" class="btn danger">⏹ Stop Bot</button>
-      </div>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button id="startBtn" class="btn primary">▶ Start Bot</button>
+      <button id="stopBtn" class="btn danger">⏹ Stop Bot</button>
+    </div>
 
-      <div style="margin-top:10px" class="small">Manual trade (debug / testing)</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
-        <button class="btn" onclick="manualTrade('DIGITMATCH')">Matches</button>
-        <button class="btn" onclick="manualTrade('DIGITDIFF')">Differs</button>
-        <button class="btn" onclick="manualTrade('DIGITEVEN')">Even</button>
-        <button class="btn" onclick="manualTrade('DIGITODD')">Odd</button>
-        <button class="btn" onclick="manualTrade('CALL')">Rise</button>
-        <button class="btn" onclick="manualTrade('PUT')">Fall</button>
-        <button class="btn" onclick="manualTrade('DIGITOVER')">Over</button>
-        <button class="btn" onclick="manualTrade('DIGITUNDER')">Under</button>
-      </div>
-
-      <div style="margin-top:12px" class="small">
-        <strong>Notes:</strong><br>
-        - Use DEMO token for testing.<br>
-        - Frontend-only = token visible in browser devtools.<br>
-        - Rapid auto-buy may trigger rate limits; set throttle if needed.
+    <div style="margin-top:12px" class="small">
+      <strong>Manual trades</strong>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+        <button class="btn secondary" id="manMatch">Matches</button>
+        <button class="btn secondary" id="manDiff">Differs</button>
+        <button class="btn secondary" id="manEven">Even</button>
+        <button class="btn secondary" id="manOdd">Odd</button>
+        <button class="btn secondary" id="manCall">Rise</button>
+        <button class="btn secondary" id="manPut">Fall</button>
+        <button class="btn secondary" id="manOver">Over</button>
+        <button class="btn secondary" id="manUnder">Under</button>
       </div>
     </div>
 
-    <!-- Center: live markers -->
-    <div class="card center-panel">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div style="font-weight:800">Live Digit Predictors</div>
-        <div class="small">Connected market: <span id="liveMarket">—</span></div>
-      </div>
-
-      <div class="markers" style="margin-top:14px">
-        <div style="text-align:center">
-          <div id="markerCurrent" class="big-circle blue">—</div>
-          <div class="small">Current Digit</div>
-        </div>
-
-        <div style="text-align:center">
-          <div id="markerPred1" class="big-circle amber">—</div>
-          <div class="small">Predicted Next (pred1)</div>
-        </div>
-
-        <div style="text-align:center">
-          <div id="markerPred2" class="big-circle pink" style="width:80px;height:80px;font-size:28px">—</div>
-          <div class="small">Meta Prediction (pred2)</div>
-        </div>
-      </div>
-
-      <div style="margin-top:12px;text-align:center">
-        <div id="statsSummary" class="small">Ticks: <span id="tickCount">0</span> • Bot: <span id="botState">stopped</span></div>
-      </div>
-
-      <div style="margin-top:12px">
-        <table>
-          <thead><tr><th>Digit</th><th>Count</th><th>Percentage</th></tr></thead>
-          <tbody id="digitTable"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Right: logs & status -->
-    <div class="card">
-      <div style="font-weight:800">Status</div>
-      <div style="margin-top:8px" class="small">WebSocket: <span id="wsState">connecting...</span></div>
-      <div style="margin-top:6px" class="small">Authorization: <span id="authState">no</span></div>
-
-      <div style="margin-top:12px;font-weight:800">Quick Logs</div>
-      <div style="margin-top:8px" class="logs" id="logBox"></div>
-      <div style="margin-top:12px">
-        <button class="btn" onclick="clearLogs()">Clear</button>
-        <button class="btn" onclick="snapshot()">Snapshot</button>
-      </div>
+    <div style="margin-top:12px" class="small">
+      Notes:<br>- Use DEMO token for testing. Frontend-only = token visible in browser devtools.<br>- Deriv may limit rapid requests; use throttle.
     </div>
   </div>
 
-  <div class="cursor" id="cursorDot" style="display:none"></div>
+  <!-- CENTER: Predictors + stats -->
+  <div class="card center-panel">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-weight:800">Live Digit Predictors</div>
+      <div class="small">Market: <span id="liveMarket">—</span></div>
+    </div>
 
-  <footer>
-    ASTARK SpeedBot — frontend only demo. Use Demo token. For production move token to backend.
-  </footer>
+    <div class="markers" style="margin-top:14px">
+      <div style="text-align:center">
+        <div id="curDigit" class="big-circle blue">—</div>
+        <div class="small">Last Digit</div>
+      </div>
+
+      <div style="text-align:center">
+        <div id="pred1" class="big-circle amber">—</div>
+        <div class="small">Predicted Next (pred1)</div>
+      </div>
+
+      <div style="text-align:center">
+        <div id="pred2" class="big-circle pink" style="width:80px;height:80px;font-size:28px">—</div>
+        <div class="small">Meta (pred2)</div>
+      </div>
+    </div>
+
+    <div style="margin-top:12px;text-align:center">
+      <div class="small">Ticks: <span id="tickCount">0</span> • Bot: <span id="botState">stopped</span></div>
+    </div>
+
+    <div style="margin-top:12px">
+      <table class="table">
+        <thead><tr><th>Digit</th><th>Count</th><th>Percentage</th></tr></thead>
+        <tbody id="digitStats"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- RIGHT: Trades & logs -->
+  <div class="card">
+    <div style="font-weight:800">Status</div>
+    <div style="margin-top:8px" class="small">WS: <span id="wsStatus">connecting...</span></div>
+    <div style="margin-top:6px" class="small">Authorized: <span id="authStatus">no</span></div>
+
+    <div style="margin-top:12px;font-weight:800">Open Trades</div>
+    <table class="table" style="margin-top:8px">
+      <thead><tr><th>ID</th><th>Type</th><th>Barrier</th><th>Stake</th></tr></thead>
+      <tbody id="openTrades"></tbody>
+    </table>
+
+    <div style="margin-top:12px;font-weight:800">Closed Trades</div>
+    <table class="table" style="margin-top:8px">
+      <thead><tr><th>ID</th><th>Type</th><th>Result</th><th>Payout</th></tr></thead>
+      <tbody id="closedTrades"></tbody>
+    </table>
+
+    <div style="margin-top:12px;font-weight:800">Running P/L</div>
+    <div style="font-size:18px;margin-top:8px"><span id="balance" style="color:var(--good)">$0.00</span></div>
+
+    <div style="margin-top:12px;font-weight:800">Logs</div>
+    <div class="logs" id="logs"></div>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button class="btn" id="clearLogs">Clear</button>
+      <button class="btn" id="snapshot">Snapshot</button>
+    </div>
+  </div>
+</div>
+
+<div class="cursor" id="cursorDot" style="display:none"></div>
 
 <script>
-/* ---------- State ---------- */
+/* ========== State ========== */
 let ws = null;
-let connectedWS = false;
+let connected = false;
 let authorized = false;
-let subscribedMarket = null;
-
+let subscribed = false;
 let tickCount = 0;
 let digitCounts = Array.from({length:10},()=>0);
-let lastDigit = null;
-let pred1 = null;
-let pred2 = null;
-
+let lastDigit = null, predA = null, predB = null;
 let botRunning = false;
 let botLastBuyTs = 0;
+let runningBalance = 0;
+const openTrades = {}; // contract_id -> info
 
-/* ---------- DOM refs ---------- */
-const statusWsEl = document.getElementById('status-ws');
+/* ========== DOM refs ========== */
 const wsStateEl = document.getElementById('wsState');
-const authStateEl = document.getElementById('authState');
+const wsStatusEl = document.getElementById('wsStatus');
+const authEl = document.getElementById('authStatus');
 const liveMarketEl = document.getElementById('liveMarket');
-const markerCurrent = document.getElementById('markerCurrent');
-const markerPred1 = document.getElementById('markerPred1');
-const markerPred2 = document.getElementById('markerPred2');
-const digitTable = document.getElementById('digitTable');
+const curDigitEl = document.getElementById('curDigit');
+const pred1El = document.getElementById('pred1');
+const pred2El = document.getElementById('pred2');
 const tickCountEl = document.getElementById('tickCount');
+const digitStatsBody = document.getElementById('digitStats');
 const botStateEl = document.getElementById('botState');
-const logBox = document.getElementById('logBox');
+const openTradesBody = document.getElementById('openTrades');
+const closedTradesBody = document.getElementById('closedTrades');
+const balanceEl = document.getElementById('balance');
+const logsEl = document.getElementById('logs');
 const cursorDot = document.getElementById('cursorDot');
 
-/* ---------- Utilities ---------- */
-function uiLog(msg) {
-  const t = new Date().toLocaleTimeString();
-  logBox.innerHTML = `<div>[${t}] ${escapeHtml(msg)}</div>` + logBox.innerHTML;
+/* ========== Utils ========== */
+function uiLog(s){
+  const t=(new Date()).toLocaleTimeString();
+  logsEl.innerHTML = `<div>[${t}] ${escapeHtml(s)}</div>` + logsEl.innerHTML;
 }
-function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-
-function renderDigitTable() {
-  digitTable.innerHTML = '';
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function updateDigitStatsUI(){
+  digitStatsBody.innerHTML = '';
   for(let d=0; d<10; d++){
-    const count = digitCounts[d];
-    const perc = tickCount? ((count / tickCount) * 100).toFixed(2) : '0.00';
-    const highlight = (pred1===d) ? 'highlight' : '';
-    digitTable.innerHTML += `<tr class="${highlight}"><td>${d}</td><td>${count}</td><td>${perc}%</td></tr>`;
+    const c = digitCounts[d] || 0;
+    const pct = tickCount ? ((c/tickCount)*100).toFixed(2) : '0.00';
+    const highlight = (predA===d) ? 'highlight' : '';
+    digitStatsBody.innerHTML += `<tr class="${highlight}"><td>${d}</td><td>${c}</td><td>${pct}%</td></tr>`;
   }
-  tickCountEl.innerText = tickCount;
+  tickCountEl.textContent = tickCount;
+}
+function updateMarkersUI(){
+  curDigitEl.innerText = lastDigit===null? '—' : lastDigit;
+  pred1El.innerText = predA===null? '—' : predA;
+  pred2El.innerText = predB===null? '—' : predB;
+  // move cursor near pred1 element
+  try{
+    const rect = pred1El.getBoundingClientRect();
+    if(rect){
+      cursorDot.style.display = 'block';
+      cursorDot.style.transform = `translate(${rect.left + rect.width/2}px, ${rect.top + rect.height/2}px)`;
+    }
+  }catch(e){}
 }
 
-function updateMarkers() {
-  markerCurrent.innerText = (lastDigit===null)?'—':lastDigit;
-  markerPred1.innerText = (pred1===null)?'—':pred1;
-  markerPred2.innerText = (pred2===null)?'—':pred2;
-
-  // Show cursor near the Pred1 element (smooth)
-  const rect = markerPred1.getBoundingClientRect();
-  if(rect && cursorDot.style){
-    cursorDot.style.display = 'block';
-    cursorDot.style.transform = `translate(${rect.left + rect.width/2}px, ${rect.top + rect.height/2}px)`;
-  }
-}
-
-/* ---------- WebSocket ---------- */
-function connectWS() {
-  disconnectWS(); // ensure clean
+/* ========== WebSocket mechanics ========== */
+function connectWS(){
   const appId = document.getElementById('appId').value || '1089';
   const url = `wss://ws.binaryws.com/websockets/v3?app_id=${encodeURIComponent(appId)}`;
+  if(ws){ try{ ws.close(); }catch(e){} }
   ws = new WebSocket(url);
+  wsStateEl.innerText = 'connecting';
+  wsStatusEl.innerText = 'connecting';
 
-  ws.onopen = () => {
-    connectedWS = true;
-    statusWsEl.innerText = 'connected';
+  ws.onopen = ()=> {
+    connected = true;
     wsStateEl.innerText = 'connected';
-    uiLog('WebSocket open');
+    wsStatusEl.innerText = 'connected';
+    uiLog('WebSocket connected');
   };
 
-  ws.onclose = (e) => {
-    connectedWS = false;
+  ws.onclose = ()=> {
+    connected = false;
     authorized = false;
-    statusWsEl.innerText = 'closed';
+    subscribed = false;
     wsStateEl.innerText = 'closed';
-    authStateEl.innerText = 'no';
+    wsStatusEl.innerText = 'closed';
+    authEl.innerText = 'no';
     uiLog('WebSocket closed');
   };
 
-  ws.onerror = (err) => {
-    uiLog('WebSocket error: ' + (err?.message || JSON.stringify(err)));
-  };
+  ws.onerror = (err)=> uiLog('WebSocket error: ' + (err?.message||JSON.stringify(err)));
 
-  ws.onmessage = (evt) => {
-    try {
-      const data = JSON.parse(evt.data);
-      if(data.msg_type === 'authorize') {
-        if(data.authorize && data.authorize.loginid){
-          authorized = true;
-          authStateEl.innerText = 'yes';
-          uiLog('Authorized: ' + data.authorize.loginid);
-        } else {
-          authorized = false;
-          authStateEl.innerText = 'no';
-          uiLog('Authorization failed');
-        }
-      }
+  ws.onmessage = (evt)=>{
+    let data;
+    try{ data = JSON.parse(evt.data);}catch(e){ uiLog('WS parse error'); return; }
 
-      if(data.msg_type === 'tick' && data.tick) {
-        handleTick(data.tick);
+    if(data.msg_type === 'authorize'){
+      if(data.authorize && data.authorize.loginid){
+        authorized = true;
+        authEl.innerText = 'yes';
+        uiLog('Authorized: ' + data.authorize.loginid);
+      } else {
+        authorized = false;
+        authEl.innerText = 'no';
+        uiLog('Authorization failed');
       }
+    }
 
-      if(data.msg_type === 'buy') {
-        uiLog('Buy response: ' + JSON.stringify(data.buy));
+    if(data.msg_type === 'tick' && data.tick){
+      handleTick(data.tick);
+    }
+
+    if(data.msg_type === 'buy' && data.buy){
+      // buy response contains contract_id usually under .buy.contract_id or .buy.transaction_id depending
+      const b = data.buy;
+      const cid = b.contract_id || b.transaction_id || (b.buy_id || 'unknown');
+      const symbol = b.symbol || document.getElementById('market').value;
+      const amount = b.buy_price ?? b.buy_price ?? b.price ?? b.purchase_price ?? b.buy_price;
+      const ctype = b.contract_type || (b.longcode ? (b.longcode.split(' ')[0]) : 'DIGIT');
+      // add to open trades
+      openTrades[cid] = { contract_id: cid, contract_type: ctype, barrier: b.barrier ?? b.prediction ?? null, amount: amount, symbol: symbol };
+      addOpenTradeRow(openTrades[cid]);
+      // subscribe for contract updates
+      try{ ws.send(JSON.stringify({ proposal_open_contract:1, contract_id: cid })); }catch(e){}
+      uiLog('Buy response received, cid='+cid);
+    }
+
+    if(data.msg_type === 'proposal_open_contract' && data.proposal_open_contract){
+      const poc = data.proposal_open_contract;
+      // if contract is sold -> closed
+      const cid = poc.contract_id;
+      if(poc.is_sold){
+        const payout = (typeof poc.profit !== 'undefined') ? poc.profit : (poc.payout ?? 0);
+        const status = poc.status || 'sold';
+        const contract_info = { contract_id: cid, contract_type: poc.contract_type, barrier: poc.barrier ?? poc.prediction ?? null };
+        moveToClosed(contract_info, { status, payout });
+        uiLog(`Contract closed: ${cid} status=${status} payout=${payout}`);
+      } else {
+        // update open trade details if needed
+        // no-op for now
       }
-      if(data.error) uiLog('Error: ' + JSON.stringify(data.error));
-    } catch (e){
-      uiLog('WS parse err: ' + e.message);
+    }
+
+    if(data.error){
+      uiLog('API Error: ' + JSON.stringify(data.error));
     }
   };
 }
 
-function disconnectWS(){
-  if(ws){
-    try{ ws.close(); }catch(e){}
-    ws = null;
-  }
-  connectedWS = false;
-  authorized = false;
-  subscribedMarket = null;
-  statusWsEl.innerText = 'closed';
-  wsStateEl.innerText = 'closed';
-  authStateEl.innerText = 'no';
-}
-
-/* ---------- Tick handling / stats ---------- */
-function handleTick(tick) {
+/* ========== Tick handling (predictors + auto-trade) ========== */
+function handleTick(tick){
   const quote = String(tick.quote);
   const last = Number(quote.slice(-1));
   lastDigit = last;
   tickCount++;
-  digitCounts[last] = (digitCounts[last] || 0) + 1;
+  digitCounts[last] = (digitCounts[last]||0) + 1;
 
-  // simple predictor logic (demo): next digit assumed (last+1)%10
-  pred1 = (last + 1) % 10;
-  pred2 = (pred1 + 1) % 10;
+  // Basic predictor examples:
+  // predA: naive next-digit predictor (last+1 mod10) — replace with your model later
+  predA = (last + 1) % 10;
+  // predB: what predA would predict next
+  predB = (predA + 1) % 10;
 
-  renderDigitTable();
-  updateMarkers();
+  updateDigitStatsUI();
+  updateMarkersUI();
 
-  // Auto-trade condition
+  // Auto trade when botRunning: immediate, subject to throttle and optional target digit
   if(botRunning){
-    const targetRaw = document.getElementById('targetDigit').value;
-    const target = (targetRaw === '' || targetRaw === null) ? null : Number(targetRaw);
-    // throttle check
+    // throttle
     const throttle = Number(document.getElementById('throttle').value) || 0;
     const now = Date.now();
-    if(throttle > 0 && now - botLastBuyTs < throttle) {
-      // skip due to throttle
-      uiLog(`Skipped (throttle) pred ${pred1}`);
+    if(throttle > 0 && (now - botLastBuyTs) < throttle){
+      uiLog('Skipped buy due throttle');
       return;
     }
 
-    if(target === null || pred1 === target) {
-      // place immediate trade according to autoMode
-      const autoMode = document.getElementById('autoMode').value;
-      if(autoMode === 'DIGITMATCH') {
-        placeBuy({ contract_type:'DIGITMATCH', prediction: pred1 });
-      } else if(autoMode === 'CALLPUT') {
-        const choice = (pred1 > last) ? 'CALL' : 'PUT';
-        placeBuy({ contract_type: choice });
-      } else if(autoMode === 'DIGITEVENODD') {
-        const isEven = (pred1 % 2) === 0;
-        placeBuy({ contract_type: isEven ? 'DIGITEVEN' : 'DIGITODD' });
-      } else {
-        // fallback
-        placeBuy({ contract_type:'DIGITMATCH', prediction: pred1 });
-      }
-      botLastBuyTs = now;
-    } else {
-      uiLog(`Skipped — pred ${pred1} != target ${target}`);
-    }
+    // Optional target digit filter (if user adds one later). For now we trade according to selected contract type:
+    const mode = document.getElementById('contractType').value;
+    autoPlaceByMode(mode, last, predA);
+
+    botLastBuyTs = now;
   }
 }
 
-/* ---------- Subscription & authorize helpers ---------- */
-function subscribeTicks(market){
-  if(!ws || ws.readyState !== 1) return;
-  subscribedMarket = market;
-  uiLog('Subscribing ticks: ' + market);
-  try {
-    ws.send(JSON.stringify({ ticks: market, subscribe: 1 }));
-    liveMarketEl.innerText = market;
-  } catch(e){
-    uiLog('Subscription failed: ' + e.message);
+/* ========== Auto place function: picks correct parameters per contract type ========== */
+function autoPlaceByMode(mode, last, predicted){
+  const stake = Number(document.getElementById('stake').value) || 1;
+  const duration = Number(document.getElementById('duration').value) || 1;
+  const symbol = document.getElementById('market').value;
+
+  // digit contracts: use 'barrier' with predicted digit
+  if(mode === 'DIGITMATCH' || mode === 'DIGITDIFF' || mode === 'DIGITEVEN' || mode === 'DIGITODD' || mode === 'DIGITOVER' || mode === 'DIGITUNDER'){
+    // Note: DIGITOVER/DIGITUNDER use barrier as threshold; still send barrier
+    placeBuy({ contract_type: mode, symbol, amount: stake, duration, duration_unit:'t', barrier:String(predicted) });
+    return;
   }
+
+  // CALL/PUT: no barrier; choose direction using predicted vs last
+  if(mode === 'CALL' || mode === 'PUT'){
+    // Simple rule: if predicted > last => CALL else PUT (you can change strategy)
+    const choice = (predicted > last) ? 'CALL' : 'PUT';
+    placeBuy({ contract_type: choice, symbol, amount: stake, duration, duration_unit:'t' });
+    return;
+  }
+
+  // fallback
+  placeBuy({ contract_type: 'DIGITMATCH', symbol, amount: stake, duration, duration_unit:'t', barrier:String(predicted) });
 }
 
-function authorizeWithToken(token){
-  if(!ws || ws.readyState !== 1) return;
-  try {
-    ws.send(JSON.stringify({ authorize: token }));
-    uiLog('Sent authorize');
-  } catch(e){ uiLog('Auth send error: ' + e.message); }
-}
-
-/* ---------- Buy request ---------- */
-function placeBuy({ contract_type, prediction = null }) {
-  if(!ws || ws.readyState !== 1) {
+/* ========== Buy helper that sends correct payload (barrier for digit types) ========== */
+function placeBuy({ contract_type, symbol, amount, duration, duration_unit='t', barrier }){
+  if(!ws || ws.readyState !== 1){
     uiLog('WS not ready for buy');
     return;
   }
-  const stake = Number(document.getElementById('stake').value) || 1;
-  const dur = Number(document.getElementById('duration').value) || 1;
-  const symbol = document.getElementById('market').value;
 
   const params = {
-    amount: stake,
+    amount: Number(amount) || 1,
     basis: 'stake',
-    contract_type: contract_type,
+    contract_type,
     currency: 'USD',
-    duration: dur,
-    duration_unit: 't',
-    symbol: symbol
+    duration: Number(duration) || 1,
+    duration_unit,
+    symbol
   };
-
-  // if digit-style, attach barrier/prediction
-  if(prediction !== null && prediction !== undefined){
-    params.barrier = String(prediction);
-    params.prediction = String(prediction);
-  } else {
-    // for over/under or others you can set barriers if needed
-    // not setting barrier here for CALL/PUT; Deriv will compute
+  if(typeof barrier !== 'undefined' && barrier !== null){
+    // correct field name for digit contracts
+    params.barrier = String(barrier);
   }
 
-  const buyReq = { buy: 1, subscribe: 1, price: stake, parameters: params };
+  const buyReq = { buy:1, subscribe:1, price: params.amount, parameters: params };
 
-  try {
-    // Ensure authorized if token present
-    const token = document.getElementById('token').value.trim();
-    if(token && !authorized) {
-      try { ws.send(JSON.stringify({ authorize: token })); } catch {}
+  try{
+    // ensure authorization if user provided token
+    const token = (document.getElementById('token').value||'').trim();
+    if(token && !authorized){
+      try{ ws.send(JSON.stringify({ authorize: token })); }catch(e){}
     }
-
     ws.send(JSON.stringify(buyReq));
-    uiLog(`Buy sent: ${params.contract_type} ${prediction !== null ? 'pred='+prediction : ''} sym=${symbol} amt=${stake}`);
-  } catch(e){
-    uiLog('Buy send error: ' + e.message);
+    uiLog(`Buy sent: ${contract_type} ${barrier? 'barrier='+barrier : ''} sym=${symbol} amt=${params.amount}`);
+  }catch(e){
+    uiLog('Buy send failed: ' + e.message);
   }
 }
 
-/* ---------- Manual trade callable from UI ---------- */
-function manualTrade(contractType){
-  // for digit contracts use pred1 as suggested digit
-  if(['DIGITMATCH','DIGITDIFF','DIGITEVEN','DIGITODD','DIGITOVER','DIGITUNDER'].includes(contractType)){
-    placeBuy({ contract_type: contractType, prediction: pred1 });
+/* ========== Open/Closed trades UI ========== */
+function addOpenTradeRow(tr){
+  const row = document.createElement('tr');
+  row.id = 'op_' + tr.contract_id;
+  row.innerHTML = `<td>${tr.contract_id}</td><td>${tr.contract_type || tr.contract_type}</td><td>${tr.barrier ?? ''}</td><td>${tr.amount ?? ''}</td>`;
+  openTradesBody.prepend(row);
+  openTrades[tr.contract_id] = tr;
+}
+function moveToClosed(tr, result){
+  // remove open if present
+  const r = document.getElementById('op_' + tr.contract_id);
+  if(r) r.remove();
+  // add to closed
+  const row = document.createElement('tr');
+  const payout = Number(result.payout) || 0;
+  const status = result.status || 'sold';
+  row.innerHTML = `<td>${tr.contract_id}</td><td>${tr.contract_type}</td><td>${status}</td><td style="color:${payout>=0? 'var(--good)':'var(--bad)'}">${payout}</td>`;
+  closedTradesBody.prepend(row);
+
+  // update running balance
+  runningBalance += payout;
+  balanceEl.textContent = `$${runningBalance.toFixed(2)}`;
+  balanceEl.style.color = runningBalance >= 0 ? 'var(--good)' : 'var(--bad)';
+  // clean open storage
+  delete openTrades[tr.contract_id];
+}
+
+/* ========== Manual trade handlers ========== */
+document.getElementById('manMatch').addEventListener('click', ()=> { manualTrade('DIGITMATCH'); });
+document.getElementById('manDiff').addEventListener('click', ()=> { manualTrade('DIGITDIFF'); });
+document.getElementById('manEven').addEventListener('click', ()=> { manualTrade('DIGITEVEN'); });
+document.getElementById('manOdd').addEventListener('click', ()=> { manualTrade('DIGITODD'); });
+document.getElementById('manCall').addEventListener('click', ()=> { manualTrade('CALL'); });
+document.getElementById('manPut').addEventListener('click', ()=> { manualTrade('PUT'); });
+document.getElementById('manOver').addEventListener('click', ()=> { manualTrade('DIGITOVER'); });
+document.getElementById('manUnder').addEventListener('click', ()=> { manualTrade('DIGITUNDER'); });
+
+function manualTrade(mode){
+  const stake = Number(document.getElementById('stake').value) || 1;
+  const duration = Number(document.getElementById('duration').value) || 1;
+  const symbol = document.getElementById('market').value;
+  if(['DIGITMATCH','DIGITDIFF','DIGITEVEN','DIGITODD','DIGITOVER','DIGITUNDER'].includes(mode)){
+    const pick = predA ?? 0;
+    placeBuy({ contract_type: mode, symbol, amount: stake, duration, duration_unit: 't', barrier: String(pick) });
   } else {
-    placeBuy({ contract_type: contractType });
+    // CALL/PUT
+    placeBuy({ contract_type: mode, symbol, amount: stake, duration, duration_unit: 't' });
   }
 }
 
-/* ---------- Bot control ---------- */
-document.getElementById('btnStart').addEventListener('click', ()=>{
-  const token = document.getElementById('token').value.trim();
+/* ========== Start/Stop & misc UI ========== */
+document.getElementById('startBtn').addEventListener('click', ()=>{
+  if(!ws || ws.readyState !== 1) connectWS();
+  const token = (document.getElementById('token').value||'').trim();
+  if(token) { try{ ws.send(JSON.stringify({ authorize: token })); }catch(e){} }
+  // subscribe ticks for currently selected market
   const market = document.getElementById('market').value;
-  if(!token) { alert('Please paste your Deriv API token (DEMO recommended)'); return; }
-
-  if(!ws || ws.readyState !== 1){
-    connectWS();
-    // wait a tiny bit for connection then authorize + subscribe
-    const waitMs = 600;
-    setTimeout(()=> {
-      authorizeWithToken(token);
-      subscribeTicks(market);
-      startBot();
-    }, waitMs);
-  } else {
-    authorizeWithToken(token);
-    subscribeTicks(market);
-    startBot();
-  }
-});
-
-document.getElementById('btnStop').addEventListener('click', ()=> {
-  stopBot();
-});
-
-/* ---------- Bot Start/Stop funcs ---------- */
-function startBot(){
-  botRunning = true;
-  botStateEl.innerText = 'running';
+  try{ ws.send(JSON.stringify({ ticks: market, subscribe: 1 })); liveMarketEl.innerText = market; subscribed = true;}catch(e){}
+  botRunning = true; botStateEl.innerText = 'running';
   uiLog('Bot started (speed mode — immediate trades)');
-}
+});
 
-function stopBot(){
-  botRunning = false;
-  botStateEl.innerText = 'stopped';
+document.getElementById('stopBtn').addEventListener('click', ()=>{
+  botRunning = false; botStateEl.innerText = 'stopped';
   uiLog('Bot stopped by user');
-  // optionally keep ws open for monitoring; do not auto-close
-}
+  // keep ws open for monitoring; do not auto-close
+});
 
-/* ---------- extras ---------- */
-function clearLogs(){ logBox.innerHTML=''; uiLog('Logs cleared'); }
-function snapshot(){
-  uiLog(`Snapshot ticks:${tickCount} last:${lastDigit} pred1:${pred1} pred2:${pred2}`);
-}
+document.getElementById('clearLogs').addEventListener('click', ()=> logsEl.innerHTML='');
+document.getElementById('snapshot').addEventListener('click', ()=> uiLog(`Snapshot ticks:${tickCount} last:${lastDigit} pred1:${predA} pred2:${predB}`));
 
-/* ---------- initialize UI ---------- */
-renderDigitTable();
-updateMarkers();
-uiLog('UI ready — paste demo token and Start Bot when ready.');
+/* ========== init UI ========== */
+updateDigitStatsUI();
+updateMarkersUI();
+uiLog('UI ready — paste demo token and press Start Bot.');
+
+/* ========== connect on first load (optional) ========== */
+connectWS();
 </script>
 </body>
 </html>
