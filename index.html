@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>ASTARK — Full Auto Digit Predictor + Trader</title>
+<title>ASTARK — Full Auto Digit Predictor & Trader</title>
 <style>
   :root{
     --bg:#071226; --panel:#0f2433; --muted:#9aa7b1; --accent:#00bfff; --text:#e6eef8;
@@ -22,16 +22,10 @@
   .primary{background:linear-gradient(90deg,var(--accent),#0077ff);color:#071123}
   .danger{background:var(--bad);color:#071123}
   .small{font-size:13px;color:var(--muted)}
-  /* center */
   .center{display:flex;flex-direction:column;gap:12px}
-  .markers{display:flex;gap:18px;align-items:center;justify-content:center}
-  .big-circle{width:120px;height:120px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:44px}
-  .blue{background:var(--accent);color:#071123}
-  .amber{background:#f59e0b;color:#071123}
   /* digits row */
   #digitsRow{display:flex;gap:8px;justify-content:center;align-items:center;padding:10px}
   .digitCell{width:44px;height:44px;border-radius:8px;background:#0b2430;display:flex;align-items:center;justify-content:center;font-weight:800}
-  .digitTop{background:#072f3d;color:var(--text)}
   .digitBest{background:#2a6b3b;color:#eaffef;font-weight:900;box-shadow:0 8px 20px rgba(46,230,168,0.06)}
   #cursor{position:fixed;width:18px;height:18px;border-radius:50%;background:#38bdf8;pointer-events:none;box-shadow:0 0 18px rgba(56,189,248,0.85);transform:translate(-50%,-50%);transition:transform .12s linear;z-index:9999}
   table{width:100%;border-collapse:collapse;color:var(--text);font-size:13px}
@@ -41,13 +35,14 @@
   .trade-win{color:var(--good)}
   .trade-loss{color:var(--bad)}
   .highlight{background:var(--highlight)}
+  .muted{color:var(--muted);font-size:13px}
   @media (max-width:980px){.wrap{grid-template-columns:1fr;gap:10px}.cursor{display:none}}
 </style>
 </head>
 <body>
 <header>
-  <div class="title">ASTARK — Auto Digit Predictor & Trader</div>
-  <div class="small">Frontend demo • paste DERIV DEMO token below</div>
+  <div class="title">ASTARK — Full Auto Digit Predictor & Trader</div>
+  <div class="small">Frontend demo — use DERIV DEMO token</div>
 </header>
 
 <div class="wrap">
@@ -60,28 +55,44 @@
 
     <div style="margin-top:12px">
       <label>Deriv API Token</label>
-      <input id="apiToken" placeholder="Paste DEMO token here" />
+      <input id="apiToken" placeholder="Paste DERIV DEMO token here" />
       <div style="display:flex;gap:8px;margin-top:8px">
         <button id="btnAuth" class="btn primary">Authorize</button>
         <button id="btnClearToken" class="btn" style="background:#1f2a38;color:#fff">Clear</button>
       </div>
+      <div class="muted" style="margin-top:8px">Token stored only in browser session (frontend).</div>
     </div>
 
     <div style="margin-top:10px">
       <label>Market (synthetic volatility)</label>
       <select id="market">
+        <!-- main vols -->
         <option value="R_10">Volatility 10 (R_10)</option>
         <option value="R_25">Volatility 25 (R_25)</option>
         <option value="R_50">Volatility 50 (R_50)</option>
         <option value="R_75">Volatility 75 (R_75)</option>
         <option value="R_100" selected>Volatility 100 (R_100)</option>
+
+        <!-- 1s/fast -->
+        <option value="FRX1">Vol 1s variant (example)</option>
         <option value="1HZ10V">Vol 10 (1s)</option>
         <option value="1HZ25V">Vol 25 (1s)</option>
         <option value="1HZ50V">Vol 50 (1s)</option>
         <option value="1HZ75V">Vol 75 (1s)</option>
         <option value="1HZ100V">Vol 100 (1s)</option>
-        <option value="BOOM1000">Boom 1000 (example)</option>
-        <option value="CRASH1000">Crash 1000 (example)</option>
+
+        <!-- higher/other -->
+        <option value="R_250">Volatility 250 (example)</option>
+        <option value="R_500">Volatility 500 (example)</option>
+
+        <!-- crash/boom -->
+        <option value="BOOM1000">Boom 1000</option>
+        <option value="BOOM500">Boom 500</option>
+        <option value="CRASH1000">Crash 1000</option>
+        <option value="CRASH500">Crash 500</option>
+
+        <!-- placeholder examples -->
+        <option value="STEP_INDEX">Step Index (example)</option>
       </select>
     </div>
 
@@ -111,14 +122,14 @@
 
     <div style="margin-top:10px">
       <label>Prediction window (ticks) — rolling N</label>
-      <input id="windowSize" type="number" min="10" max="1000" value="100"/>
-      <div class="small">Smaller = faster/reactive. Larger = smoother.</div>
+      <input id="windowSize" type="number" min="10" max="2000" value="100"/>
+      <div class="small">Smaller = more reactive. Larger = smoother.</div>
     </div>
 
     <div style="margin-top:10px">
-      <label>Throttle (ms) — min delay between buys</label>
+      <label>Throttle (ms) — minimum delay between buys</label>
       <input id="throttle" type="number" min="0" value="0"/>
-      <div class="small">Set >0 if you see rate-limit errors.</div>
+      <div class="small">Increase if you see rate-limit or "too many requests" errors.</div>
     </div>
 
     <div style="margin-top:12px;display:flex;gap:8px">
@@ -126,7 +137,7 @@
       <button id="stopBtn" class="btn danger">⏹ Stop</button>
     </div>
 
-    <div style="margin-top:12px" class="small">Mode: Full Auto — predictor drives barrier automatically.</div>
+    <div style="margin-top:12px" class="muted">Mode: Full Auto — predictor sets barrier automatically and trades instantly.</div>
   </div>
 
   <!-- CENTER: Predictor visualization + frequency -->
@@ -244,7 +255,7 @@ function setAuthState(v){ authState.innerText = v ? 'yes' : 'no'; }
 
 /* ========== WebSocket & Deriv API helpers ========= */
 function connectWebsocket(){
-  const appId = '1089'; // public demo app id
+  const appId = '1089'; // demo app id
   if(ws){ try{ ws.close(); }catch(e){} }
   ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${appId}`);
   setWsState('connecting');
@@ -288,18 +299,16 @@ function wsMessageHandler(evt){
     openTrades[cid] = {
       contract_id: cid,
       contract_type: b.contract_type || b.longcode || 'DIGIT',
-      barrier: b.barrier ?? b.parameters?.barrier ?? null,
-      stake: b.buy_price ?? b.purchase_price ?? b.price ?? b.buy_price ?? 0
+      barrier: b.barrier ?? (b.parameters && b.parameters.barrier) ?? null,
+      stake: b.buy_price ?? b.purchase_price ?? b.price ?? 0
     };
     addOpenTradeRow(openTrades[cid]);
     uiLog('Buy accepted, cid=' + cid);
-    // subscribe for contract updates
     try{ ws.send(JSON.stringify({ proposal_open_contract:1, contract_id: cid })); }catch(e){}
   }
 
   if(data.msg_type === 'proposal_open_contract' && data.proposal_open_contract){
     const poc = data.proposal_open_contract;
-    // when it's sold, add to closed
     if(poc.is_sold){
       const cid = poc.contract_id;
       const payout = typeof poc.profit !== 'undefined' ? poc.profit : (poc.payout ?? 0);
@@ -368,9 +377,8 @@ function updateFreqUI(freq, bestDigit){
 
   // also style digit in digitsRow
   document.querySelectorAll('.digitCell').forEach(el=>{
-    el.classList.remove('digitTop','digitBest');
+    el.classList.remove('digitBest');
     const d = Number(el.dataset.d);
-    el.classList.add('digitCell');
     if(d === bestDigit) el.classList.add('digitBest');
   });
 }
@@ -392,10 +400,7 @@ function moveCursorToDigit(digit){
 function attemptAutoBuy(predictedDigit, lastTickDigit){
   const now = Date.now();
   const throttle = Math.max(0, Number(throttleEl.value) || 0);
-  if(now - lastBuyTs < throttle) {
-    // throttle in effect
-    return;
-  }
+  if(now - lastBuyTs < throttle) return; // throttle in effect
 
   // form contract parameters based on contract type
   const contractType = contractTypeEl.value;
@@ -403,7 +408,6 @@ function attemptAutoBuy(predictedDigit, lastTickDigit){
   const duration = Math.max(1, parseInt(durationEl.value) || 1);
   const symbol = marketEl.value;
 
-  // Determine parameters
   const params = {
     contract_type: contractType,
     symbol,
@@ -414,16 +418,15 @@ function attemptAutoBuy(predictedDigit, lastTickDigit){
     currency: 'USD'
   };
 
-  // For digit contracts: set barrier=predictedDigit
+  // For digit contracts -> set barrier to predictedDigit
   if(['DIGITMATCH','DIGITDIFF','DIGITEVEN','DIGITODD','DIGITOVER','DIGITUNDER'].includes(contractType)){
     params.barrier = String(predictedDigit);
   }
 
-  // For CALL/PUT: we can choose direction using predictedDigit vs lastTickDigit
-  // Simple rule: if predictedDigit > lastTickDigit => CALL else PUT
+  // For CALL/PUT: choose direction using a simple rule (higher predicted => CALL else PUT)
   if(contractType === 'CALL' || contractType === 'PUT'){
-    const direction = (predictedDigit > lastTickDigit) ? 'CALL' : 'PUT';
-    params.contract_type = direction;
+    const dir = (predictedDigit > lastTickDigit) ? 'CALL' : 'PUT';
+    params.contract_type = dir;
   }
 
   const buyReq = { buy: 1, subscribe: 1, price: stake, parameters: params };
@@ -438,7 +441,6 @@ function attemptAutoBuy(predictedDigit, lastTickDigit){
 
 /* ========== Open/Closed trade UI management ========= */
 function addOpenTradeRow(tr){
-  // ensure unique
   const tbody = openBody;
   const row = document.createElement('tr');
   row.id = 'open_' + tr.contract_id;
@@ -446,10 +448,8 @@ function addOpenTradeRow(tr){
   tbody.prepend(row);
 }
 function moveToClosed(tr, result){
-  // remove open
   const row = document.getElementById('open_' + tr.contract_id);
   if(row) row.remove();
-  // add closed
   const tbody = closedBody;
   const trEl = document.createElement('tr');
   const payout = Number(result.payout || 0);
@@ -463,7 +463,6 @@ btnAuth.addEventListener('click', ()=>{
   const token = apiTokenEl.value.trim();
   if(!token){ alert('Paste your Deriv DEMO token first'); return; }
   if(!ws || ws.readyState !== 1) connectWebsocket();
-  // authorize will be sent after open or now:
   try{ ws.send(JSON.stringify({ authorize: token })); uiLog('Authorize requested'); }catch(e){ uiLog('Auth send error'); }
 });
 
@@ -473,9 +472,7 @@ startBtn.addEventListener('click', ()=>{
   if(!ws || ws.readyState !== 1) connectWebsocket();
   const token = apiTokenEl.value.trim();
   if(!token){ alert('Please paste Deriv API token and press Authorize'); return; }
-  // authorize explicitly if not authorized
   try{ ws.send(JSON.stringify({ authorize: token })); }catch(e){}
-  // subscribe ticks
   subscribedMarket = marketEl.value;
   try{ ws.send(JSON.stringify({ ticks: subscribedMarket, subscribe: 1 })); uiLog('Subscribed to ticks: ' + subscribedMarket); }catch(e){ uiLog('Subscribe error'); }
   botRunning = true;
@@ -485,7 +482,6 @@ startBtn.addEventListener('click', ()=>{
 stopBtn.addEventListener('click', ()=>{
   botRunning = false;
   uiLog('Bot stopped by user');
-  // keep WS open for monitoring but unsubscribe ticks by sending empty? to be simple, close ws
   try{ ws.close(); }catch(e){}
 });
 
@@ -499,4 +495,9 @@ document.getElementById('downloadLog').addEventListener('click', ()=>{
 });
 
 /* ========== Init ========== */
-uiLog('UI ready — paste Demo token, Authorize, choose market, then S
+uiLog('UI ready — paste Demo token, Authorize, choose market, then Start Bot.');
+setWsState('idle');
+connectWebsocket();
+</script>
+</body>
+          </html>
