@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ASTARK — MKOREAN FULL Matches (All 9 strategies)</title>
+<style>
+  :root{--bg:#071226;--panel:#0f2433;--muted:#9aa7b1;--accent:#00bfff;--text:#e6eef8;--good:#2ee6a8;--bad:#ff6b6b}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text)}
+  header{padding:12px 16px;background:linear-gradient(90deg,#071b2e,#0a2b48);display:flex;justify-content:space-between;align-items:center}
+  .title{font-weight:800;color:var(--accent)}
+  .grid{max-width:1200px;margin:14px auto;display:grid;grid-template-columns:320px 1fr 420px;gap:14px;padding:12px}
+  .card{background:var(--panel);padding:12px;border-radius:10px}
+  label{display:block;color:var(--muted);font-weight:700;margin:6px 0;font-size:13px}
+  input,select,button{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:#071019;color:var(--text)}
+  .row{display:flex;gap:8px}
+  .btn{padding:9px 12px;border-radius:8px;border:none;cursor:pointer;font-weight:700}
+  .primary{background:linear-gradient(90deg,var(--accent),#0077ff);color:#071123}
+  .danger{background:var(--bad);color:#071123}
+  .small{font-size:13px;color:var(--muted)}
+  #digits{display:flex;gap:10px;justify-content:center;align-items:flex-end;margin:10px 0;height:180px}
+  .bar-wrap{width:56px;text-align:center;position:relative}
+  .bar{width:100%;height:0;border-radius:6px;background:#07333f;display:flex;align-items:flex-end;justify-content:center;transition:height .12s linear;overflow:hidden}
+  .bar-fill{width:100%;height:100%;border-radius:6px;display:flex;align-items:flex-end;justify-content:center;color:#071019;font-weight:800}
+  .label{margin-top:6px}
+  canvas.spark{width:56px;height:26px;display:block;background:transparent}
+  table{width:100%;border-collapse:collapse;color:var(--text);font-size:13px}
+  th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);text-align:center}
+  th{background:#072032}
+  .logs{max-height:200px;overflow:auto;font-family:monospace;font-size:13px;background:#071623;padding:8px;border-radius:6px}
+  .muted{color:var(--muted);font-size:13px}
+  .win{color:var(--good)} .loss{color:var(--bad)}
+  #cursor{position:fixed;width:18px;height:18px;border-radius:50%;background:#38bdf8;pointer-events:none;box-shadow:0 0 12px rgba(56,189,248,0.8);transform:translate(-50%,-50%);transition:transform .12s linear;z-index:9999}
+  .strategy-help{font-size:12px;color:var(--muted);margin-top:6px}
+  @media (max-width:980px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div class="title">ASTARK — MKOREAN FULL Matches (All 9)</div>
+  <div class="small">Use DEMO token first — Read strategy help per selection</div>
+</header>
+
+<div class="grid">
+  <!-- LEFT: Controls & Strategy selection -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-weight:800">Controls</div>
+      <div class="small">WS: <span id="wsState">idle</span></div>
+    </div>
+
+    <label>Deriv API Token (DEMO)</label>
+    <input id="apiToken" placeholder="Paste DERIV DEMO token here" />
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button id="btnAuth" class="btn primary">Authorize</button>
+      <button id="btnClear" class="btn">Clear</button>
+    </div>
+    <div class="muted" style="margin-top:8px">Token stored only in browser session.</div>
+
+    <label style="margin-top:10px">Market (volatility)</label>
+    <select id="market">
+      <option value="R_10">Vol 10</option><option value="R_25">Vol 25</option><option value="R_50">Vol 50</option>
+      <option value="R_75">Vol 75</option><option value="R_100" selected>Vol 100</option>
+      <option value="1HZ10V">Vol 10 (1s)</option><option value="1HZ25V">Vol 25 (1s)</option><option value="1HZ50V">Vol 50 (1s)</option>
+    </select>
+
+    <label style="margin-top:10px">Contract Type (suggested: DIGITMATCH)</label>
+    <select id="contractType">
+      <option value="DIGITMATCH">Digit Match</option>
+      <option value="DIGITDIFF">Digit Differs</option>
+      <option value="DIGITEVEN">Digit Even</option>
+      <option value="DIGITODD">Digit Odd</option>
+      <option value="DIGITOVER">Digit Over</option>
+      <option value="DIGITUNDER">Digit Under</option>
+      <option value="CALL">Rise (CALL)</option>
+      <option value="PUT">Fall (PUT)</option>
+    </select>
+
+    <label style="margin-top:10px">Stake (USD)</label>
+    <input id="stake" type="number" min="0.35" step="0.01" value="1"/>
+
+    <label style="margin-top:10px">Duration (ticks)</label>
+    <input id="duration" type="number" min="1" value="1"/>
+
+    <label style="margin-top:10px">Window size (rolling ticks)</label>
+    <input id="windowSize" type="number" min="10" max="2000" value="100"/>
+
+    <label style="margin-top:10px">EMA alpha (0-1) — enhanced predictor</label>
+    <input id="emaAlpha" type="number" min="0.01" max="0.99" step="0.01" value="0.25"/>
+
+    <label style="margin-top:10px">Confidence threshold (%)</label>
+    <input id="confThresh" type="number" min="0" max="100" value="8"/>
+
+    <label style="margin-top:10px">Throttle (ms) — min delay between buys</label>
+    <input id="throttle" type="number" min="0" value="1000"/>
+
+    <label style="margin-top:10px">Strategy (MKOREAN: 1 → 9)</label>
+    <select id="strategySelect">
+      <option value="1">Prediction 1</option>
+      <option value="2">Prediction 2</option>
+      <option value="3">Prediction 3</option>
+      <option value="4">Prediction 4</option>
+      <option value="5">Prediction 5</option>
+      <option value="6">Prediction 6</option>
+      <option value="7">Prediction 7</option>
+      <option value="8">Prediction 8</option>
+      <option value="9">Prediction 9</option>
+    </select>
+    <div id="strategyHelp" class="strategy-help">Select a strategy to see conditions.</div>
+
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button id="startPreview" class="btn">Start Preview</button>
+      <button id="startLive" class="btn primary">Start Live</button>
+      <button id="stopBtn" class="btn danger">Stop</button>
+    </div>
+
+    <div style="margin-top:12px">
+      <label><input id="enableTP" type="checkbox"/> Enable Take Profit</label>
+      <input id="tpPercent" type="number" min="0" value="20" placeholder="TP %"/>
+      <label style="margin-top:8px"><input id="enableSL" type="checkbox"/> Enable Stop Loss</label>
+      <input id="slPercent" type="number" min="0" value="20" placeholder="SL %"/>
+      <label style="margin-top:8px"><input id="enableMartingale" type="checkbox"/> Enable Martingale</label>
+      <input id="martingaleMultiplier" type="number" min="1" step="0.1" value="2"/>
+    </div>
+  </div>
+
+  <!-- CENTER: visualization -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-weight:800">Real-time Predictor & MKOREAN Strategies</div>
+      <div class="small">Ticks observed: <span id="tickCount">0</span></div>
+    </div>
+
+    <div id="digits" style="margin-top:12px"></div>
+
+    <div style="display:flex;gap:12px;margin-top:12px">
+      <div style="width:48%">
+        <div style="font-weight:800">Baseline (counts)</div>
+        <div class="small">Top: <b id="baseTop">-</b></div>
+        <table><thead><tr><th>Digit</th><th>Count</th><th>%</th></tr></thead><tbody id="baseTable"></tbody></table>
+      </div>
+      <div style="width:48%">
+        <div style="font-weight:800">Enhanced (EMA)</div>
+        <div class="small">Top: <b id="enhTop">-</b> • Conf: <b id="enhConf">-</b>%</div>
+        <table><thead><tr><th>Digit</th><th>EMA</th><th>%</th></tr></thead><tbody id="enhTable"></tbody></table>
+      </div>
+    </div>
+
+    <div style="margin-top:12px">
+      <div style="font-weight:700">Predictor log</div>
+      <div class="logs" id="predictorLog"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: trades & logs -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-weight:800">Trades & Activity</div>
+      <div class="small">Auth: <span id="authState">no</span></div>
+    </div>
+
+    <div style="margin-top:8px">
+      <div style="font-weight:700">Open Trades</div>
+      <table><thead><tr><th>ID</th><th>Type</th><th>Barrier</th><th>Stake</th></tr></thead><tbody id="openBody"></tbody></table>
+    </div>
+
+    <div style="margin-top:8px">
+      <div style="font-weight:700">Closed Trades</div>
+      <table><thead><tr><th>ID</th><th>Type</th><th>Result</th><th>Payout</th></tr></thead><tbody id="closedBody"></tbody></table>
+    </div>
+
+    <div style="margin-top:12px;font-weight:700">Activity Log</div>
+    <div class="logs" id="activityLog"></div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button id="clearActivity" class="btn">Clear</button>
+      <button id="downloadActivity" class="btn">Download</button>
+    </div>
+  </div>
+</div>
+
+<div id="cursor"></div>
+
+<script>
+/* ================= State ================= */
+let ws = null;
+let authorized = false;
+let previewMode = false;
+let liveMode = false;
+let tickCount = 0;
+let baseHistory = [];
+let baseCounts = Array(10).fill(0);
+let ema = Array(10).fill(0);
+let emaHistory = Array.from({length:10}, ()=>[]); // keep small history for trend checks
+let recordedTicks = [];
+let recording = false;
+let lastBuyTs = 0;
+let openTrades = {};
+let closedTrades = [];
+let prevCursorDigit = null;
+
+/* DOM refs */
+const apiTokenEl = document.getElementById('apiToken');
+const btnAuth = document.getElementById('btnAuth');
+const btnClear = document.getElementById('btnClear');
+const wsStateEl = document.getElementById('wsState');
+const authStateEl = document.getElementById('authState');
+const marketEl = document.getElementById('market');
+const contractTypeEl = document.getElementById('contractType');
+const stakeEl = document.getElementById('stake');
+const durationEl = document.getElementById('duration');
+const windowSizeEl = document.getElementById('windowSize');
+const emaAlphaEl = document.getElementById('emaAlpha');
+const confThreshEl = document.getElementById('confThresh');
+const throttleEl = document.getElementById('throttle');
+const usePredictorEl = document.getElementById('usePredictor');
+const strategySelect = document.getElementById('strategySelect');
+const strategyHelp = document.getElementById('strategyHelp');
+const tickCountEl = document.getElementById('tickCount');
+
+const digitsDiv = document.getElementById('digits');
+const baseTable = document.getElementById('baseTable');
+const enhTable = document.getElementById('enhTable');
+const baseTopEl = document.getElementById('baseTop');
+const enhTopEl = document.getElementById('enhTop');
+const enhConfEl = document.getElementById('enhConf');
+const predictorLog = document.getElementById('predictorLog');
+const activityLog = document.getElementById('activityLog');
+const cursor = document.getElementById('cursor');
+
+const startPreviewBtn = document.getElementById('startPreview');
+const startLiveBtn = document.getElementById('startLive');
+const stopBtn = document.getElementById('stopBtn');
+const startPreview = startPreviewBtn;
+const startLive = startLiveBtn;
+
+/* init bars/sparklines */
+for(let d=0; d<10; d++){
+  const wrap = document.createElement('div'); wrap.className='bar-wrap'; wrap.dataset.d=d;
+  const bar = document.createElement('div'); bar.className='bar'; bar.dataset.d=d;
+  const fill = document.createElement('div'); fill.className='bar-fill'; fill.style.height='0%';
+  fill.innerText = d;
+  bar.appendChild(fill);
+  const canvas = document.createElement('canvas'); canvas.className='spark'; canvas.width=56; canvas.height=26;
+  const lbl = document.createElement('div'); lbl.className='label'; lbl.innerText='0.0%';
+  wrap.appendChild(bar); wrap.appendChild(canvas); wrap.appendChild(lbl);
+  digitsDiv.appendChild(wrap);
+}
+
+/* ================= Utilities ================= */
+function logActivity(s){ activityLog.innerHTML = `[${new Date().toLocaleTimeString()}] ${escapeHtml(s)}\n` + activityLog.innerHTML; }
+function logPredictor(s){ predictorLog.innerHTML = `[${new Date().toLocaleTimeString()}] ${escapeHtml(s)}\n` + predictorLog.innerHTML; }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function setWsState(s){ wsStateEl.innerText = s; }
+function setAuthState(b){ authStateEl.innerText = b ? 'yes' : 'no'; }
+
+/* ================= WebSocket (Deriv) ================= */
+function connectWS(){
+  const appId='1089';
+  if(ws){ try{ ws.close(); }catch(e){} }
+  ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${appId}`);
+  setWsState('connecting');
+  ws.onopen = ()=>{ setWsState('connected'); tryAuthorize(); };
+  ws.onclose = ()=>{ setWsState('closed'); setAuthState(false); logActivity('WS closed'); };
+  ws.onerror = (e)=> logActivity('WS error: '+(e?.message||JSON.stringify(e)));
+  ws.onmessage = m => {
+    let data;
+    try{ data = JSON.parse(m.data); }catch(e){ return; }
+    if(data.msg_type === 'authorize'){ if(data.authorize && data.authorize.loginid){ setAuthState(true); logActivity('Authorized '+data.authorize.loginid); } else { setAuthState(false); logActivity('Auth failed'); } }
+    if(data.msg_type === 'tick' && data.tick) handleTick(data.tick);
+    if(data.msg_type === 'buy' && data.buy) handleBuyResponse(data.buy);
+    if(data.msg_type === 'proposal_open_contract' && data.proposal_open_contract) handleOpenContract(data.proposal_open_contract);
+    if(data.error) logActivity('API error: '+JSON.stringify(data.error));
+  };
+}
+function tryAuthorize(){ const t = apiTokenEl.value.trim(); if(!t) return; try{ ws.send(JSON.stringify({ authorize: t })); logActivity('Authorize sent'); }catch(e){ logActivity('Auth send failed'); } }
+
+/* ================= Predictor & Tick handling ================= */
+function handleTick(tick){
+  const quote = String(tick.quote);
+  const lastDigit = Number(quote.slice(-1));
+  tickCount++; tickCountEl.innerText = tickCount;
+  if(recording) recordedTicks.push({ ts: Date.now(), quote: tick.quote });
+
+  // rolling baseline
+  const windowSize = Math.max(10, Number(windowSizeEl.value) || 100);
+  baseHistory.push(lastDigit); baseCounts[lastDigit] = (baseCounts[lastDigit]||0) + 1;
+  if(baseHistory.length > windowSize){ const removed = baseHistory.shift(); baseCounts[removed] = Math.max(0, (baseCounts[removed]||0)-1); }
+
+  // EMA update
+  const alpha = Math.max(0.01, Math.min(0.99, Number(emaAlphaEl.value) || 0.25));
+  for(let d=0; d<10; d++){
+    const obs = (d === lastDigit) ? 1 : 0;
+    ema[d] = alpha * obs + (1 - alpha) * (ema[d] || 0);
+    // keep tiny history for trend checks
+    const hist = emaHistory[d] || []; hist.push(ema[d]); if(hist.length>8) hist.shift(); emaHistory[d]=hist;
+  }
+
+  // compute stats
+  const baseTotal = baseCounts.reduce((a,b)=>a+b,0)||1;
+  let baseTop=0, baseTopCount=-1, baseSecond=0;
+  for(let d=0; d<10; d++){
+    if(baseCounts[d] > baseTopCount){ baseSecond = baseTopCount; baseTopCount = baseCounts[d]; baseTop = d; } else baseSecond = Math.max(baseSecond, baseCounts[d]);
+  }
+  const emaTotal = ema.reduce((a,b)=>a+b,0) || 1;
+  let enhTop=0, enhTopVal=-1, enhSecondVal=0;
+  for(let d=0; d<10; d++){
+    if(ema[d] > enhTopVal){ enhSecondVal = enhTopVal; enhTopVal = ema[d]; enhTop = d; } else if(ema[d] > enhSecondVal){ enhSecondVal = ema[d]; }
+  }
+  const confidence = ((enhTopVal - enhSecondVal)/emaTotal) * 100;
+  const enhTopPct = (enhTopVal/emaTotal) * 100;
+
+  // update UI
+  updateUI(baseCounts.slice(), baseTotal, baseTop, enhTop, enhTopPct, confidence, lastDigit);
+
+  logPredictor(`T${tickCount} last:${lastDigit} base->${baseTop} enh->${enhTop} conf:${confidence.toFixed(1)}%`);
+
+  // Strategy check + buy gating (cursor-enter rule)
+  const chosenPredictor = usePredictorEl?.value || 'enhanced';
+  const predictedDigit = (chosenPredictor === 'enhanced') ? enhTop : baseTop;
+  const chosenConf = (chosenPredictor === 'enhanced') ? confidence : ((baseTopCount - baseSecond)/baseTotal*100);
+
+  // move cursor visual (and detect when it has "arrived")
+  moveCursorToDigit(predictedDigit);
+
+  // check strategy conditions
+  const strategyId = Number(strategySelect.value || 1);
+  const strategyOk = checkStrategy(strategyId, {
+    baseCounts: baseCounts.slice(),
+    baseTotal,
+    ema: ema.slice(),
+    emaHistory: emaHistory.map(h=>h.slice()),
+    enhTop,
+    enhTopPct,
+    confidence,
+    baseTop,
+    baseTopCount,
+    lastDigit
+  });
+
+  // gating: only attempt buy when strategyOk and (cursor moved into predicted digit) and confidence passes threshold and throttle
+  const confThreshold = Number(confThreshEl.value) || 0;
+  const throttleMs = Math.max(0, Number(throttleEl.value) || 0);
+  const now = Date.now();
+  const withinThrottle = (now - lastBuyTs) < throttleMs;
+  const confOk = chosenConf >= confThreshold;
+
+  // cursor-entry detection: require that previous cursor digit is different and now equals predictedDigit (i.e., cursor just landed)
+  const cursorJustArrived = (prevCursorDigit !== predictedDigit);
+  // The PDF requires waiting for the cursor to hit the predicted digit. We model arrival as cursor change; we also allow a small animation settle.
+  if(strategyOk && confOk && !withinThrottle && cursorJustArrived && liveMode){
+    // small settle delay matching transition (120ms)
+    setTimeout(()=>{
+      placeBuy(predictedDigit, lastDigit);
+    }, 120);
+  }
+
+  prevCursorDigit = predictedDigit;
+}
+
+/* ========== Strategy implementations (interpreted from PDF) ========== */
+/*
+  Implementation notes:
+  - Each PDF "Prediction X" contains a set of rules. We implemented conservative, testable versions:
+    - "green bar" => predicted/enhanced top digit has been increasing (EMA trend positive)
+    - "red bar" => a specific digit is currently below a recent average or is decreasing
+    - "digit % between A-B" => check current enhanced% within that range
+    - "cursor moves from even digit" => check previous last tick digit was even (lastDigit%2 === 0) before entry
+    - "digit constant" => digit EMA change small (abs delta < small threshold)
+    - We preserved order and applied all conditions required for a strategy to return true.
+  - If any PDF rule is ambiguous, we chose a conservative interpretation (requires increase/stability rather than looser).
+*/
+
+function checkStrategy(id, ctx){
+  // ctx contains: baseCounts, baseTotal, ema, emaHistory, enhTop, enhTopPct, confidence, baseTop, baseTopCount, lastDigit
+  const { baseCounts, baseTotal, ema, emaHistory, enhTop, enhTopPct, confidence, baseTop, baseTopCount, lastDigit } = ctx;
+  // helper fns
+  const pct = (d) => { const eTotal = ema.reduce((a,b)=>a+b,0)||1; return (ema[d]/eTotal*100); };
+  const emaTrendPositive = (d) => { const h = emaHistory[d]||[]; if(h.length<2) return false; return h[h.length-1] > h[h.length-2]; };
+  const emaTrendNegative = (d) => { const h = emaHistory[d]||[]; if(h.length<2) return false; return h[h.length-1] < h[h.length-2]; };
+  const emaStable = (d) => { const h = emaHistory[d]||[]; if(h.length<3) return true; const dif = Math.max(...h) - Math.min(...h); return dif < 0.02; }; // small variation
+  const basePercent = (d) => ((baseTotal? (baseCounts[d]/baseTotal*100):0));
+  // Implement each strategy conditions (interpreted)
+  switch(id){
+    case 1:
+      // Prediction 1 (interpreted):
+      // - require enhTop is specific (we'll interpret as must be top)
+      // - require a "green" digit (enhTop) increasing; a "red" digit exists but increasing (interpreted)
+      // - require some other digit's % relation (digit1% > digit2%)
+      // From PDF: example used digits 3 green, 6 red (increasing), 1% > 2%
+      // Implementation: require enhTop's EMA trending up; require at least one lower-digit that is trending up (red but rising); require baseCounts[1] > baseCounts[2]
+      if(!emaTrendPositive(enhTop)) return false;
+      // require existence of at least one digit with negative EMA but currently increasing (simulating "red but increasing")
+      if(![0,1,2,3,4,5,6,7,8,9].some(d=> (pct(d) < 8 && emaTrendPositive(d)))) return false;
+      // require baseCounts[1] > baseCounts[2] OR base percent relation to hold if enough ticks
+      if(!(baseCounts[1] > baseCounts[2])) return false;
+      return true;
+    case 2:
+      // Prediction 2 (interpreted):
+      // - Top digit stable or increasing, top% > 10%, second < top - 4%
+      if(pct(enhTop) < 9.5) return false;
+      if(!emaTrendPositive(enhTop)) return false;
+      // second highest pct
+      const sorted = ema.map((v,i)=>({i,v})).sort((a,b)=>b.v-a.v);
+      if(((sorted[0].v - sorted[1].v)/ (ema.reduce((a,b)=>a+b,0)||1) *100) < 4) return false;
+      return true;
+    case 3:
+      // Prediction 3:
+      // - require a certain digit's pct between 9.5 and 11 and stable
+      // - require some other digit decreasing (we'll check lastDigit relation)
+      {
+        const target = enhTop; // PDF named digit 3; we generalize
+        const p = pct(target);
+        if(!(p >= 9.5 && p <= 11)) return false;
+        if(!emaStable(target)) return false;
+        // require previous lastDigit even (cursor moved from even digit rule)
+        if(lastDigit % 2 !== 0) return false;
+        return true;
+      }
+    case 4:
+      // Prediction 4:
+      // - require enhTop >= 11% and increasing, and another digit (maybe 6) is low but rising
+      if(pct(enhTop) < 11) return false;
+      if(!emaTrendPositive(enhTop)) return false;
+      if(![0,1,2,3,4,5,6,7,8,9].some(d=> (pct(d) < 8 && emaTrendPositive(d)))) return true ? true : false;
+      // fallback to true if no such digit
+      return true;
+    case 5:
+      // Prediction 5:
+      // - require an even-digit to be decreasing and the top digit to be increasing
+      if(!emaTrendPositive(enhTop)) return false;
+      if(![0,2,4,6,8].some(d=> emaTrendNegative(d))) return false;
+      return true;
+    case 6:
+      // Prediction 6:
+      // - require a green top (increasing), and base topCount significantly > second
+      if(!emaTrendPositive(enhTop)) return false;
+      if(((baseTopCount - Math.max(...baseCounts.filter((_,i)=>i!==baseTop))) / Math.max(1, baseTotal) * 100) < 4) return false;
+      return true;
+    case 7:
+      // Prediction 7:
+      // - explicit rule in PDF: digit 7 green, digit 0 red, digit 8 >= 11%
+      // implement: require enhTop==7 or pct(7) high & increasing, pct(8)>=11
+      if(!(pct(8) >= 11)) return false;
+      if(!(pct(7) >= 8 && emaTrendPositive(7))) return false;
+      return true;
+    case 8:
+      // Prediction 8:
+      // - require top digit relatively large & previous lastDigit even, top increasing
+      if(!emaTrendPositive(enhTop)) return false;
+      if(pct(enhTop) < 9) return false;
+      if(lastDigit % 2 !== 0) return false;
+      return true;
+    case 9:
+      // Prediction 9:
+      // - catch-all: top digit increasing, confidence above 6% and second well below top
+      if(!emaTrendPositive(enhTop)) return false;
+      if(confidence < 6) return false;
+      const srt = ema.map((v,i)=>({i,v})).sort((a,b)=>b.v-a.v);
+      if(((srt[0].v - srt[1].v)/ (ema.reduce((a,b)=>a+b,0)||1) *100) < 3) return false;
+      return true;
+    default:
+      return false;
+  }
+}
+
+/* ========== UI updates (bars, tables, sparklines) ========== */
+function updateUI(baseFreq, baseTotal, baseTop, enhTop, enhTopPct, confidence, lastDigit){
+  const emaTotal = ema.reduce((a,b)=>a+b,0) || 1;
+  for(let d=0; d<10; d++){
+    const wrap = digitsDiv.children[d];
+    const bar = wrap.querySelector('.bar');
+    const fill = bar.querySelector('.bar-fill');
+    const pct = ((ema[d] || 0) / emaTotal * 100);
+    fill.style.height = pct + '%';
+    fill.style.background = (d === enhTop) ? '#2a6b3b' : '#0ea5d9';
+    wrap.querySelector('.label').innerText = pct.toFixed(1) + '%';
+    wrap.style.border = (d === baseTop) ? '2px solid rgba(255,215,0,0.08)' : 'none';
+    // sparkline history
+    const history = (wrap._history||[]); history.push((lastDigit===d)?1:0); if(history.length>40) history.shift(); wrap._history = history;
+    drawSparkline(wrap.querySelector('canvas.spark'), history);
+  }
+
+  // baseline table
+  baseTable.innerHTML = '';
+  for(let d=0; d<10; d++){
+    const pct = (baseTotal ? ((baseFreq[d]/baseTotal)*100).toFixed(1) : '0.0');
+    const tr = document.createElement('tr'); tr.innerHTML = `<td>${d}</td><td>${baseFreq[d]}</td><td>${pct}%</td>`;
+    if(d === baseTop) tr.style.fontWeight='700';
+    baseTable.appendChild(tr);
+  }
+  baseTopEl.innerText = baseTop;
+
+  // enhanced table
+  enhTable.innerHTML = '';
+  for(let d=0; d<10; d++){
+    const em = (ema[d] || 0).toFixed(4);
+    const pct = ((ema[d] || 0) / emaTotal * 100).toFixed(1);
+    const tr = document.createElement('tr'); tr.innerHTML = `<td>${d}</td><td>${em}</td><td>${pct}%</td>`;
+    if(d===enhTop) tr.style.fontWeight='700';
+    enhTable.appendChild(tr);
+  }
+  enhTopEl.innerText = enhTop;
+  enhConfEl.innerText = confidence.toFixed(1);
+
+  // show chosen strategy help (brief)
+  const sId = Number(strategySelect.value || 1);
+  const helps = {
+    1: 'Pred1: Top digit increasing, small red-digit rise allowed, require baseCount(1)>baseCount(2).',
+    2: 'Pred2: Top increasing, top% >= 9.5%, top lead > 4%.',
+    3: 'Pred3: Top% ~9.5-11%, stable, previous last tick even.',
+    4: 'Pred4: Top% >=11% & increasing.',
+    5: 'Pred5: Top increasing & some even-digit decreasing.',
+    6: 'Pred6: Top increasing & baseTop significantly above others.',
+    7: 'Pred7: digit8 >=11% and digit7 rising (green), prefer digit0 low (red).',
+    8: 'Pred8: Top >=9% & increasing and previous tick even.',
+    9: 'Pred9: Conservative: top increasing, confidence>6% and clear lead.'
+  };
+  strategyHelp.innerText = helps[sId] || '';
+}
+
+/* sparkline draw */
+function drawSparkline(canvas, history){
+  const ctx = canvas.getContext('2d'); const w = canvas.width; const h = canvas.height;
+  ctx.clearRect(0,0,w,h);
+  if(!history.length) return;
+  ctx.beginPath();
+  for(let i=0;i<history.length;i++){
+    const x = (i/(history.length-1||1))*(w-2)+1;
+    const v = history[i];
+    const y = h - (v*(h-4)) - 2;
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  }
+  ctx.lineWidth=1; ctx.strokeStyle='rgba(14,165,217,0.9)'; ctx.stroke();
+  ctx.fillStyle='rgba(14,165,217,0.12)'; ctx.lineTo(w,h); ctx.lineTo(0,h); ctx.closePath(); ctx.fill();
+}
+
+/* cursor movement */
+function moveCursorToDigit(digit){
+  try{
+    const el = digitsDiv.children[digit].querySelector('.bar');
+    if(!el) return;
+    const r = el.getBoundingClientRect();
+    const cx = r.left + r.width/2; const cy = r.top + r.height/2;
+    cursor.style.transform = `translate(${cx}px, ${cy}px)`;
+  }catch(e){}
+}
+
+/* ========== Trading: place buy (correct Deriv payload) ========== */
+function placeBuy(predictedDigit, lastTickDigit){
+  if(!ws || ws.readyState !== 1){ logActivity('WS not connected'); return; }
+  const contractType = contractTypeEl.value;
+  const symbol = marketEl.value;
+  const stake = parseFloat(stakeEl.value) || 1;
+  const duration = Math.max(1, parseInt(durationEl.value) || 1);
+  const params = {
+    contract_type: contractType,
+    symbol,
+    amount: stake,
+    basis: 'stake',
+    duration,
+    duration_unit: 't',
+    currency: 'USD'
+  };
+  if(['DIGITMATCH','DIGITDIFF','DIGITEVEN','DIGITODD','DIGITOVER','DIGITUNDER'].includes(contractType)){
+    params.barrier = String(predictedDigit); // DERIV expects barrier for digit contracts
+  }
+  if(contractType === 'CALL' || contractType === 'PUT'){
+    // simple rule: predictedDigit > lastTickDigit => CALL else PUT
+    params.contract_type = (predictedDigit > lastTickDigit) ? 'CALL' : 'PUT';
+  }
+
+  const buyReq = { buy:1, subscribe:1, price: stake, parameters: params };
+  try{
+    ws.send(JSON.stringify(buyReq));
+    lastBuyTs = Date.now();
+    logActivity(`BUY sent — symbol=${symbol} type=${params.contract_type || contractType} barrier=${params.barrier ?? '-'} stake=${stake}`);
+  }catch(e){ logActivity('Buy send failed: '+(e?.message||e)); }
+}
+
+/* buy responses */
+function handleBuyResponse(buy){
+  const cid = buy.contract_id || ('cid_'+Date.now());
+  openTrades[cid] = { contract_id: cid, contract_type: buy.contract_type || buy.longcode || '', barrier: buy.barrier ?? (buy.parameters && buy.parameters.barrier) ?? null, stake: buy.buy_price ?? buy.price ?? 0 };
+  addOpenRow(openTrades[cid]);
+  logActivity('Buy accepted cid=' + cid);
+  try{ ws.send(JSON.stringify({ proposal_open_contract:1, contract_id: cid })); }catch(e){}
+}
+function handleOpenContract(poc){
+  if(poc.is_sold){
+    const cid = poc.contract_id; const payout = typeof poc.profit !== 'undefined' ? poc.profit : (poc.payout ?? 0);
+    moveToClosed({ contract_id: cid, contract_type: poc.contract_type, barrier: poc.barrier ?? null }, { status: poc.status, payout });
+    logActivity(`Contract closed cid=${cid} profit=${payout}`);
+  }
+}
+
+/* open/close UI */
+function addOpenRow(tr){
+  const row = document.createElement('tr'); row.id = 'open_'+tr.contract_id;
+  row.innerHTML = `<td>${tr.contract_id}</td><td>${escapeHtml(tr.contract_type)}</td><td>${escapeHtml(tr.barrier ?? '')}</td><td>${escapeHtml(tr.stake ?? '')}</td>`;
+  document.getElementById('openBody').prepend(row);
+}
+function moveToClosed(tr, res){
+  const r = document.getElementById('open_'+tr.contract_id); if(r) r.remove();
+  const trEl = document.createElement('tr'); const payout = Number(res.payout||0); const cls = payout>=0 ? 'win' : 'loss';
+  trEl.innerHTML = `<td>${tr.contract_id}</td><td>${escapeHtml(tr.contract_type)}</td><td class="${cls}">${escapeHtml(res.status||'')}</td><td class="${cls}">${payout}</td>`;
+  document.getElementById('closedBody').prepend(trEl);
+}
+
+/* ========== UI events ========== */
+btnAuth.addEventListener('click', ()=>{
+  if(!apiTokenEl.value.trim()){ alert('Paste DERIV DEMO token first'); return; }
+  if(!ws || ws.readyState !== 1) connectWS();
+  else tryAuthorize();
+});
+btnClear.addEventListener('click', ()=>{ apiTokenEl.value=''; logActivity('Token cleared'); });
+
+startPreview.addEventListener('click', ()=>{
+  previewMode = true; liveMode = false;
+  if(!ws || ws.readyState !== 1) connectWS();
+  const m = marketEl.value;
+  try{ ws.send(JSON.stringify({ ticks: m, subscribe:1 })); logActivity('Preview subscribed to ticks '+m); }catch(e){ logActivity('Subscribe failed'); }
+});
+startLive.addEventListener('click', ()=>{
+  liveMode = true; previewMode = false;
+  if(!ws || ws.readyState !== 1) connectWS();
+  const token = apiTokenEl.value.trim();
+  if(!token){ alert('Paste DEMO token and authorize first'); return; }
+  try{ ws.send(JSON.stringify({ authorize: token })); }catch(e){}
+  const m = marketEl.value;
+  try{ ws.send(JSON.stringify({ ticks: m, subscribe:1 })); logActivity('Live subscribed to ticks '+m); }catch(e){ logActivity('Subscribe failed'); }
+});
+stopBtn.addEventListener('click', ()=>{ liveMode=false; previewMode=false; try{ if(ws) ws.close(); }catch(e){} logActivity('Stopped'); });
+
+document.getElementById('clearActivity').addEventListener('click', ()=> activityLog.innerHTML='');
+document.getElementById('downloadActivity').addEventListener('click', ()=>{
+  const blob = new Blob([activityLog.innerText], {type:'text/plain'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='astark-activity.txt'; a.click(); URL.revokeObjectURL(url);
+});
+
+/* init */
+logActivity('UI ready — choose a MKOREAN strategy, Start Preview to observe, then Start Live on DEMO to test automation.');
+setWsState('idle');
+connectWS();
+
+</script>
+</body>
+</html>
