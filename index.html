@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>ASTARK — Scanner & Real-time Cursor Predictor</title>
+<title>ASTARK — Scanner + Real-time Cursor Predictor + Bot</title>
 <style>
   :root{
     --bg:#071226;--panel:#0f2433;--muted:#9aa7b1;--accent:#00bfff;
@@ -31,13 +31,12 @@
   th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);text-align:center}
   th{background:#072032}
   .muted{color:var(--muted);font-size:13px}
-  .logs{font-family:monospace;font-size:13px;max-height:240px;overflow:auto;background:#071623;padding:8px;border-radius:6px}
+  .logs{font-family:monospace;font-size:13px;max-height:260px;overflow:auto;background:#071623;padding:8px;border-radius:6px}
   .good{color:var(--good)} .bad{color:var(--bad)} .warn{color:#ffd36b}
-  #cursor{position:fixed;width:20px;height:20px;border-radius:50%;background:#38bdf8;pointer-events:none;box-shadow:0 0 12px rgba(56,189,248,0.9);transform:translate(-50%,-50%);transition:transform .09s linear;z-index:9999}
-  /* Cursor predictor panel visuals */
+  #cursorVis{position:fixed;width:20px;height:20px;border-radius:50%;background:#38bdf8;pointer-events:none;box-shadow:0 0 12px rgba(56,189,248,0.9);transform:translate(-50%,-50%);transition:transform .09s linear;z-index:9999}
   #digitsRow{display:flex;gap:10px;justify-content:center;align-items:flex-end;height:180px;margin:12px 0}
   .digitCell{width:52px;height:140px;border-radius:10px;background:linear-gradient(180deg,#052636,#0b3b4a);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;position:relative;overflow:hidden}
-  .digitBar{width:100%;height:0%;background:#0ea5d9;border-radius:8px;display:flex;align-items:flex-end;justify-content:center;font-weight:800;color:#071123;transition:height .08s linear}
+  .digitBar{width:100%;height:3%;background:#0ea5d9;border-radius:8px;display:flex;align-items:flex-end;justify-content:center;font-weight:800;color:#071123;transition:height .08s linear}
   .digitLabel{margin-top:8px;font-weight:800}
   .digitSpark{position:absolute;left:6px;top:6px;font-size:11px;color:var(--muted)}
   .activeDigit{outline:3px solid rgba(255,215,0,0.12);box-shadow:0 6px 18px rgba(14,165,217,0.08) inset}
@@ -47,7 +46,7 @@
 <body>
 <header>
   <div class="brand">ASTARK — Scanner & Cursor Predictor</div>
-  <div class="muted">Two tabs: Scanner (multi-market) | Cursor Predictor (real-time). Use DEMO token for trading.</div>
+  <div class="muted">Scanner tab (multi-market) • Cursor Predictor tab (real-time) • Bot (auto-trade) — DEMO token only for testing.</div>
 </header>
 
 <main>
@@ -68,7 +67,7 @@
         <label>Markets to scan (comma-separated)</label>
         <textarea id="marketsList" rows="2">R_10,R_25,R_50,R_75,R_100,1HZ10V,1HZ25V,1HZ50V,1HZ75V,1HZ100V</textarea>
 
-        <div class="row" style="margin-top:8px">
+        <div style="display:flex;gap:8px;margin-top:8px">
           <button id="startScan" class="btn primary">Start Scanning</button>
           <button id="stopScan" class="btn danger">Stop</button>
         </div>
@@ -76,10 +75,7 @@
         <label style="margin-top:8px">Window size (ticks)</label>
         <input id="scanWindow" value="120"/>
 
-        <label style="margin-top:8px">Transition history length</label>
-        <input id="transLen" value="40"/>
-
-        <label style="margin-top:8px">Confidence threshold (for auto-signal)</label>
+        <label style="margin-top:8px">Confidence threshold (0-1)</label>
         <input id="scanConf" value="0.6"/>
 
         <label style="margin-top:8px">Auto-publish signals to Bot</label>
@@ -93,8 +89,8 @@
       </div>
 
       <div class="card">
-        <div style="font-weight:800">Signals (from scanner)</div>
-        <div class="muted">Signals created by cursor-style predictor inside scanner per market.</div>
+        <div style="font-weight:800">Signals</div>
+        <div class="muted">Signals created by scanner (auto/manual). Click send to forward to bot.</div>
         <table id="signalsTable"><thead><tr><th>Time</th><th>Market</th><th>Digit</th><th>Score</th><th>Status</th></tr></thead><tbody></tbody></table>
 
         <div style="margin-top:12px;font-weight:800">Signals log</div>
@@ -115,7 +111,7 @@
         <label>Market (single)</label>
         <select id="cursorMarket">
           <option>R_10</option><option>R_25</option><option>R_50</option><option>R_75</option><option selected>R_100</option>
-          <option>1HZ10V</option><option>1HZ25V</option><option>1HZ50V</option>
+          <option>1HZ10V</option><option>1HZ25V</option><option>1HZ50V</option><option>1HZ75V</option><option>1HZ100V</option>
         </select>
 
         <div style="display:flex;gap:8px;margin-top:8px">
@@ -123,19 +119,16 @@
           <button id="stopCursor" class="btn danger">Stop</button>
         </div>
 
-        <label style="margin-top:8px">Model window (ticks)</label>
+        <label style="margin-top:8px">Window (ticks)</label>
         <input id="cursorWindow" value="80"/>
-
-        <label style="margin-top:8px">Transition memory length</label>
-        <input id="cursorTransLen" value="40"/>
 
         <label style="margin-top:8px">Auto-Trade predicted digit</label>
         <select id="cursorAutoTrade"><option value="no">No</option><option value="yes">Yes</option></select>
 
-        <label style="margin-top:8px">Stake</label>
+        <label style="margin-top:8px">Stake (USD)</label>
         <input id="cursorStake" value="1"/>
 
-        <label style="margin-top:8px">Throttle ms</label>
+        <label style="margin-top:8px">Throttle ms (min delay between buys)</label>
         <input id="cursorThrottle" value="1200"/>
 
         <div style="margin-top:12px;font-weight:800">Cursor visualizer</div>
@@ -151,20 +144,20 @@
       <div class="card">
         <div style="font-weight:800">Bot (trading panel)</div>
         <label>Deriv API Token (DEMO)</label>
-        <input id="botToken" placeholder="Paste DERIV DEMO token"/>
+        <input id="botToken" placeholder="Paste DERIV DEMO token here"/>
 
         <div style="display:flex;gap:8px;margin-top:8px">
           <button id="botAuth" class="btn primary">Authorize</button>
           <button id="botClear" class="btn">Clear</button>
         </div>
 
-        <label style="margin-top:8px">Auto-accept incoming signals</label>
+        <label style="margin-top:8px">Auto-Accept incoming signals</label>
         <select id="botAutoAccept"><option value="yes">Yes</option><option value="no">No</option></select>
 
-        <div style="margin-top:8px;font-weight:700">Open Trades</div>
+        <div style="margin-top:12px;font-weight:700">Open Trades</div>
         <table id="openTable"><thead><tr><th>ID</th><th>Market</th><th>Barrier</th><th>Stake</th></tr></thead><tbody></tbody></table>
 
-        <div style="margin-top:8px;font-weight:700">Closed Trades</div>
+        <div style="margin-top:12px;font-weight:700">Closed Trades</div>
         <table id="closedTable"><thead><tr><th>ID</th><th>Market</th><th>Result</th><th>Payout</th></tr></thead><tbody></tbody></table>
 
         <div style="margin-top:12px;font-weight:700">Bot log</div>
@@ -172,201 +165,174 @@
       </div>
     </div>
   </div>
+
 </main>
 
-<div id="cursor" aria-hidden="true"></div>
+<div id="cursorVis" aria-hidden="true"></div>
 
 <script>
-/* ================= COMMON HELPERS ================= */
-const bc = new BroadcastChannel('astark_channel'); // cross-tab (same page) signal bus
+/* -----------------------------
+   Shared helpers & BroadcastChannel
+   ----------------------------- */
+const bc = new BroadcastChannel('astark_channel'); // cross-panel messaging within this page
 function now(){ return new Date().toLocaleTimeString(); }
-function logInto(el, msg){ el.innerHTML = `[${now()}] ${msg}\n` + el.innerHTML; }
-function safeNum(v, fallback=0){ const n = Number(v); return Number.isFinite(n)?n:fallback; }
+function logInto(el,msg){ el.innerHTML = `[${now()}] ${msg}\n` + el.innerHTML; }
+function safeNum(v,def=0){ const n=Number(v); return Number.isFinite(n)?n:def; }
 
-/* ================= TAB SWITCH ================= */
+/* -----------------------------
+   Tab switching
+   ----------------------------- */
 document.getElementById('tabScanner').addEventListener('click', ()=>switchTab('scanner'));
 document.getElementById('tabCursor').addEventListener('click', ()=>switchTab('cursor'));
-function switchTab(t){
-  document.getElementById('viewScanner').style.display = t==='scanner' ? '' : 'none';
-  document.getElementById('viewCursor').style.display = t==='cursor' ? '' : 'none';
-  document.getElementById('tabScanner').classList.toggle('active', t==='scanner');
-  document.getElementById('tabCursor').classList.toggle('active', t==='cursor');
+function switchTab(name){
+  document.getElementById('viewScanner').style.display = name==='scanner' ? '' : 'none';
+  document.getElementById('viewCursor').style.display = name==='cursor' ? '' : 'none';
+  document.getElementById('tabScanner').classList.toggle('active', name==='scanner');
+  document.getElementById('tabCursor').classList.toggle('active', name==='cursor');
 }
 
-/* ================== SCANNER IMPLEMENTATION ================== */
-const scannerState = {
+/* =========================
+   Scanner implementation
+   ========================= */
+const scanner = {
   ws: null,
-  running: false,
   markets: [],
-  perMarket: {}, // symbol -> {history, transCounts, tickCount}
-  rotIndex:0
+  perMarket: {},
+  running: false,
+  rotIndex: 0
 };
 const scannerTableBody = document.querySelector('#scannerTable tbody');
 const scannerLog = document.getElementById('scannerLog');
 const signalsTable = document.querySelector('#signalsTable tbody');
 const signalsLog = document.getElementById('signalsLog');
 
-document.getElementById('startScan').addEventListener('click', () => {
-  const raw = document.getElementById('marketsList').value.trim();
-  if(!raw) return alert('Enter at least one market symbol');
-  scannerState.markets = raw.split(',').map(s=>s.trim()).filter(Boolean);
-  scannerState.window = Math.max(10, safeNum(document.getElementById('scanWindow').value,120));
-  scannerState.transLen = Math.max(10, safeNum(document.getElementById('transLen').value,40));
-  scannerState.conf = Math.max(0, Math.min(1, safeNum(document.getElementById('scanConf').value,0.6)));
-  startScanner();
-});
+document.getElementById('startScan').addEventListener('click', startScanner);
 document.getElementById('stopScan').addEventListener('click', stopScanner);
 
 function startScanner(){
-  if(scannerState.running) { logInto(scannerLog,'Scanner already running'); return; }
-  scannerState.perMarket = {};
-  for(const m of scannerState.markets){
-    scannerState.perMarket[m] = { history: [], transCounts: Array.from({length:10}, ()=>Array(10).fill(0)), tickCount:0, lastDigit:null };
+  if(scanner.running) { logInto(scannerLog,'Scanner already running'); return; }
+  const raw = document.getElementById('marketsList').value.trim();
+  if(!raw) return alert('Enter markets to scan');
+  scanner.markets = raw.split(',').map(s=>s.trim()).filter(Boolean);
+  scanner.window = Math.max(10, safeNum(document.getElementById('scanWindow').value,120));
+  scanner.conf = Math.max(0, Math.min(1, safeNum(document.getElementById('scanConf').value,0.6)));
+  // init per-market data
+  scanner.perMarket = {};
+  for(const m of scanner.markets){
+    scanner.perMarket[m] = { history: [], transCounts: Array.from({length:10}, ()=>Array(10).fill(0)), lastDigit: null, tickCount:0 };
   }
+  // connect WS
   const appId = '1089';
-  scannerState.ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${appId}`);
+  scanner.ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${appId}`);
   document.getElementById('scannerWs').innerText = 'connecting';
-  scannerState.ws.onopen = ()=>{ document.getElementById('scannerWs').innerText='connected'; logInto(scannerLog,'Scanner WS connected'); subscribeScannerMarkets(); scannerState.running=true; };
-  scannerState.ws.onclose = ()=>{ document.getElementById('scannerWs').innerText='closed'; logInto(scannerLog,'Scanner WS closed'); scannerState.running=false; };
-  scannerState.ws.onerror = (e)=> logInto(scannerLog,'Scanner WS error: '+(e?.message||JSON.stringify(e)));
-  scannerState.ws.onmessage = (m)=> {
-    let data; try{ data = JSON.parse(m.data); }catch(e){ return; }
+  scanner.ws.onopen = ()=>{ document.getElementById('scannerWs').innerText = 'connected'; logInto(scannerLog,'Scanner WS connected'); subscribeScanner(); scanner.running=true; renderScannerTable(); };
+  scanner.ws.onclose = ()=>{ document.getElementById('scannerWs').innerText = 'closed'; logInto(scannerLog,'Scanner WS closed'); scanner.running=false; };
+  scanner.ws.onerror = (e)=> logInto(scannerLog,'Scanner WS error: '+(e?.message||JSON.stringify(e)));
+  scanner.ws.onmessage = (m)=> {
+    let data; try{ data=JSON.parse(m.data);}catch(e){return;}
     if(data.msg_type === 'tick' && data.tick){ handleScannerTick(data.tick); }
     if(data.error) logInto(scannerLog,'API error: '+JSON.stringify(data.error));
   };
 }
 
-/* Subscribe individually; note: Deriv's tick responses don't include market symbol in payload reliably in simple demo; we use rotating mapping to assign ticks to markets — it's a practical limitation of simple frontend-only scanning.
-   This approach works acceptably for demo/experimentation, but for production you'd need a backend that tags subscriptions. */
-function subscribeScannerMarkets(){
-  for(const m of scannerState.markets){
-    try{ scannerState.ws.send(JSON.stringify({ ticks: m, subscribe: 1 })); logInto(scannerLog,'Subscribed to '+m); }catch(e){ logInto(scannerLog,'Subscribe fail '+m); }
+function subscribeScanner(){
+  for(const m of scanner.markets){
+    try{ scanner.ws.send(JSON.stringify({ ticks: m, subscribe: 1 })); logInto(scannerLog,'Subscribed to '+m); }catch(e){ logInto(scannerLog,'Subscribe fail '+m); }
   }
-  renderScannerTable();
 }
 
-/* rotating tick assignment: process incoming ticks in round-robin */
+/* Rotating assignment: a simple pragmatic method for mapping incoming ticks to markets.
+   Works reasonably for demo scanning; for production use a backend that tags subscriptions. */
 function handleScannerTick(tick){
   const quote = tick.quote;
-  // assign to market by rot index
-  const markets = scannerState.markets;
+  const markets = scanner.markets;
   if(!markets.length) return;
-  const sym = markets[scannerState.rotIndex % markets.length];
-  scannerState.rotIndex++;
-  processScannerMarketTick(sym, quote);
+  const sym = markets[scanner.rotIndex % markets.length];
+  scanner.rotIndex++;
+  processScannerTick(sym, quote);
 }
 
-function processScannerMarketTick(sym, quote){
-  const st = scannerState.perMarket[sym];
+function processScannerTick(sym, quote){
+  const st = scanner.perMarket[sym];
   if(!st) return;
   const d = Number(String(quote).slice(-1));
   st.tickCount++;
-  // update transition counts from lastDigit -> d
+  // update transition counts
   if(st.lastDigit !== null){
     st.transCounts[st.lastDigit][d] = (st.transCounts[st.lastDigit][d]||0) + 1;
   }
   st.lastDigit = d;
   st.history.push(d);
-  if(st.history.length > scannerState.window) st.history.shift();
-  // compute predicted next digit: from lastDigit, choose digit with highest transition count
-  const last = st.lastDigit;
-  let pred = null;
-  let score = 0;
-  if(last !== null){
-    const row = st.transCounts[last];
-    let total = row.reduce((a,b)=>a+b,0) || 1;
-    for(let x=0;x<10;x++){
-      const s = row[x] / total; // relative frequency of last->x
-      if(s > score){ score = s; pred = x; }
-    }
+  if(st.history.length > scanner.window) st.history.shift();
+  // compute prediction: from lastDigit choose highest transition fraction
+  let pred=null, score=0;
+  if(st.lastDigit !== null){
+    const row = st.transCounts[st.lastDigit];
+    const tot = row.reduce((a,b)=>a+b,0) || 1;
+    for(let x=0;x<10;x++){ const s = row[x]/tot; if(s>score){ score=s; pred=x; } }
   }
-  // update UI
   updateScannerRow(sym, pred, score, st.tickCount);
-  // auto-signal logic: if score >= threshold and pred exists, create a signal
-  if(pred !== null && score >= scannerState.conf){
-    const sig = { time: new Date().toISOString(), market: sym, digit: pred, score: Number((score*100).toFixed(2)) };
+  if(pred !== null && score >= scanner.conf){
+    const sig = { time:new Date().toISOString(), market: sym, digit: pred, score: Number((score*100).toFixed(2)) };
     createScannerSignal(sig);
   }
 }
 
-function updateScannerRow(sym, pred, score, ticks){
-  let row = document.querySelector(`#scannerTable tbody tr[data-sym="${sym}"]`);
-  if(!row){
-    row = document.createElement('tr'); row.dataset.sym = sym;
-    row.innerHTML = `<td>${sym}</td><td class="pred">-</td><td class="score">-</td><td class="ticks">-</td><td><button class="sendBtn btn">Send</button></td>`;
-    scannerTableBody.appendChild(row);
-    row.querySelector('.sendBtn').addEventListener('click', ()=>{
-      if(pred===null) return;
-      const sig = { time: new Date().toISOString(), market: sym, digit: pred, score: Number((score*100).toFixed(2)) };
+function renderScannerTable(){
+  scannerTableBody.innerHTML = '';
+  for(const m of scanner.markets){
+    const r = document.createElement('tr'); r.dataset.sym = m;
+    r.innerHTML = `<td>${m}</td><td class="pred">-</td><td class="score">-</td><td class="ticks">0</td><td><button class="sendBtn btn">Send</button></td>`;
+    scannerTableBody.appendChild(r);
+    r.querySelector('.sendBtn').addEventListener('click', ()=> {
+      const st = scanner.perMarket[m];
+      if(!st) return;
+      let pred=null, score=0;
+      if(st.lastDigit !== null){
+        const row = st.transCounts[st.lastDigit];
+        const tot = row.reduce((a,b)=>a+b,0) || 1;
+        for(let x=0;x<10;x++){ const s = row[x]/tot; if(s>score){score=s; pred=x;} }
+      }
+      if(pred === null) return alert('No prediction yet');
+      const sig = { time:new Date().toISOString(), market: m, digit: pred, score: Number((score*100).toFixed(2)) };
       createScannerSignal(sig, true);
     });
   }
+}
+
+function updateScannerRow(sym, pred, score, ticks){
+  const row = document.querySelector(`#scannerTable tbody tr[data-sym="${sym}"]`);
+  if(!row) return;
   row.querySelector('.pred').innerText = pred===null?'-':pred;
   row.querySelector('.score').innerText = (score? (score*100).toFixed(1)+'%':'-');
   row.querySelector('.ticks').innerText = ticks;
 }
 
-/* create scanner signal and optionally publish to Bot via BroadcastChannel (auto or manual) */
 function createScannerSignal(sig, manual=false){
-  // add to signals table
   const tr = document.createElement('tr');
   tr.innerHTML = `<td>${(new Date(sig.time)).toLocaleTimeString()}</td><td>${sig.market}</td><td>${sig.digit}</td><td>${sig.score}%</td><td>${manual? 'manual':'auto'}</td>`;
   signalsTable.prepend(tr);
-  logInto(signalsLog, `Signal: ${sig.market} → ${sig.digit} (${sig.score}%) ${manual?'(manual)':''}`);
+  logInto(signalsLog, `Signal: ${sig.market} -> ${sig.digit} (${sig.score}%)`);
   const auto = document.getElementById('autoPublish').value === 'yes';
-  if(auto || manual){
-    bc.postMessage({ type:'signal', source:'scanner', signal: sig });
-    logInto(scannerLog, `Published signal to Bot: ${sig.market} ${sig.digit} ${sig.score}%`);
-  }
+  if(auto || manual){ bc.postMessage({ type:'signal', source:'scanner', signal: sig }); logInto(scannerLog, `Published to Bot: ${sig.market} ${sig.digit}`); }
 }
 
 function stopScanner(){
-  if(scannerState.ws){ try{ scannerState.ws.close(); }catch(e){} }
-  scannerState.running = false;
-  document.getElementById('scannerWs').innerText = 'stopped';
-  logInto(scannerLog, 'Scanner stopped');
+  if(scanner.ws){ try{ scanner.ws.close(); }catch(e){} }
+  scanner.running=false; document.getElementById('scannerWs').innerText='stopped'; logInto(scannerLog,'Scanner stopped');
 }
 
-function renderScannerTable(){
-  scannerTableBody.innerHTML = '';
-  for(const m of scannerState.markets){
-    const r = document.createElement('tr'); r.dataset.sym = m;
-    r.innerHTML = `<td>${m}</td><td class="pred">-</td><td class="score">-</td><td class="ticks">0</td><td><button class="sendBtn btn">Send</button></td>`;
-    scannerTableBody.appendChild(r);
-    r.querySelector('.sendBtn').addEventListener('click', ()=>{
-      const st = scannerState.perMarket[m];
-      if(!st) return;
-      // compute pred quickly
-      let pred=null, score=0;
-      if(st.lastDigit !== null){
-        const row = st.transCounts[st.lastDigit];
-        const total = row.reduce((a,b)=>a+b,0) || 1;
-        for(let x=0;x<10;x++){ const s=row[x]/total; if(s>score){score=s; pred=x;} }
-      }
-      if(pred === null) return alert('No prediction available yet');
-      const sig = { time: new Date().toISOString(), market: m, digit: pred, score: Number((score*100).toFixed(2)) };
-      createScannerSignal(sig, true);
-    });
-  }
-}
-
-/* ================= CURSOR PREDICTOR IMPLEMENTATION ================= */
-const cursorState = {
-  ws: null,
-  running: false,
-  market: null,
-  history: [],
-  transCounts: Array.from({length:10}, ()=>Array(10).fill(0)),
-  lastDigit: null,
-  rot:0
-};
+/* =========================
+   Cursor Predictor implementation
+   ========================= */
+const cursorState = { ws:null, running:false, market:null, history:[], transCounts: Array.from({length:10}, ()=>Array(10).fill(0)), lastDigit:null, window:80 };
 const digitsRow = document.getElementById('digitsRow');
 const cursorLog = document.getElementById('cursorLog');
 const cursorSignalsTable = document.querySelector('#cursorSignalsTable tbody');
 const cursorWsEl = document.getElementById('cursorWs');
-const cursorElement = document.getElementById('cursor');
+const cursorVis = document.getElementById('cursorVis');
 
-/* build digit cells for visual */
+/* build digit UI */
 for(let i=0;i<10;i++){
   const cell = document.createElement('div'); cell.className='digitCell'; cell.dataset.d = i;
   const spark = document.createElement('div'); spark.className='digitSpark'; spark.innerText = i;
@@ -376,424 +342,198 @@ for(let i=0;i<10;i++){
   digitsRow.appendChild(cell);
 }
 
+/* start/stop handlers */
 document.getElementById('startCursor').addEventListener('click', ()=>{
   cursorState.market = document.getElementById('cursorMarket').value;
   cursorState.window = Math.max(10, safeNum(document.getElementById('cursorWindow').value,80));
-  cursorState.transLen = Math.max(10, safeNum(document.getElementById('cursorTransLen').value,40));
   startCursor();
 });
 document.getElementById('stopCursor').addEventListener('click', stopCursor);
 
-/* Connect to Deriv and subscribe to one market; here we expect tick data (rotating not needed) */
 function startCursor(){
   if(cursorState.running) { logInto(cursorLog,'Cursor already running'); return; }
   cursorState.history = []; cursorState.transCounts = Array.from({length:10}, ()=>Array(10).fill(0)); cursorState.lastDigit = null;
-  const appId = '1089';
+  const appId='1089';
   cursorState.ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${appId}`);
   cursorWsEl.innerText = 'connecting';
-  cursorState.ws.onopen = ()=>{ cursorWsEl.innerText='connected'; logInto(cursorLog,'Cursor WS connected'); subscribeCursorMarket(); cursorState.running=true; };
+  cursorState.ws.onopen = ()=>{ cursorWsEl.innerText='connected'; logInto(cursorLog,'Cursor WS connected'); subscribeCursor(); cursorState.running=true; };
   cursorState.ws.onclose = ()=>{ cursorWsEl.innerText='closed'; logInto(cursorLog,'Cursor WS closed'); cursorState.running=false; };
   cursorState.ws.onerror = (e)=> logInto(cursorLog,'Cursor WS error: '+(e?.message||JSON.stringify(e)));
-  cursorState.ws.onmessage = (m)=> {
-    let data; try{ data = JSON.parse(m.data); }catch(e){ return; }
-    if(data.msg_type === 'tick' && data.tick){ handleCursorTick(data.tick); }
-    if(data.error) logInto(cursorLog,'API error: '+JSON.stringify(data.error<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>ASTARK — Scanner & Real-time Cursor Predictor</title>
-<style>
-  :root{
-    --bg:#071226;--panel:#0f2433;--muted:#9aa7b1;--accent:#00bfff;
-    --text:#e6eef8;--good:#2ee6a8;--bad:#ff6b6b;--card:#0b2a3a;
-    --accent-dark:#0077ff;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;font-family:Inter,system-ui,Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text)}
-  header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:linear-gradient(90deg,#071b2e,#0a2b48)}
-  .brand{font-weight:800;color:var(--accent)}
-  main{max-width:1180px;margin:14px auto;padding:12px}
-  .tabs{display:flex;gap:8px;margin-bottom:12px}
-  .tab{padding:8px 12px;border-radius:8px;cursor:pointer;background:rgba(255,255,255,0.02)}
-  .tab.active{background:linear-gradient(90deg,var(--accent),var(--accent-dark));color:#071123}
-  .layout{display:grid;grid-template-columns:1fr 420px;gap:12px}
-  .card{background:var(--panel);padding:12px;border-radius:10px}
-  label{display:block;color:var(--muted);font-weight:700;margin:6px 0;font-size:13px}
-  input,textarea,select,button{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:#071019;color:var(--text)}
-  textarea{resize:vertical}
-  .row{display:flex;gap:8px}
-  .btn{padding:8px 10px;border-radius:8px;border:none;cursor:pointer;font-weight:700}
-  .primary{background:linear-gradient(90deg,var(--accent),var(--accent-dark));color:#071123}
-  .danger{background:var(--bad);color:#071123}
-  table{width:100%;border-collapse:collapse;color:var(--text);font-size:13px;margin-top:8px}
-  th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);text-align:center}
-  th{background:#072032}
-  .muted{color:var(--muted);font-size:13px}
-  .logs{font-family:monospace;font-size:13px;max-height:240px;overflow:auto;background:#071623;padding:8px;border-radius:6px}
-  .good{color:var(--good)} .bad{color:var(--bad)} .warn{color:#ffd36b}
-  #cursor{position:fixed;width:20px;height:20px;border-radius:50%;background:#38bdf8;pointer-events:none;box-shadow:0 0 12px rgba(56,189,248,0.9);transform:translate(-50%,-50%);transition:transform .09s linear;z-index:9999}
-  /* Cursor predictor panel visuals */
-  #digitsRow{display:flex;gap:10px;justify-content:center;align-items:flex-end;height:180px;margin:12px 0}
-  .digitCell{width:52px;height:140px;border-radius:10px;background:linear-gradient(180deg,#052636,#0b3b4a);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;position:relative;overflow:hidden}
-  .digitBar{width:100%;height:0%;background:#0ea5d9;border-radius:8px;display:flex;align-items:flex-end;justify-content:center;font-weight:800;color:#071123;transition:height .08s linear}
-  .digitLabel{margin-top:8px;font-weight:800}
-  .digitSpark{position:absolute;left:6px;top:6px;font-size:11px;color:var(--muted)}
-  .activeDigit{outline:3px solid rgba(255,215,0,0.12);box-shadow:0 6px 18px rgba(14,165,217,0.08) inset}
-  @media (max-width:980px){.layout{grid-template-columns:1fr}}
-</style>
-</head>
-<body>
-<header>
-  <div class="brand">ASTARK — Scanner & Cursor Predictor</div>
-  <div class="muted">Two tabs: Scanner (multi-market) | Cursor Predictor (real-time). Use DEMO token for trading.</div>
-</header>
-
-<main>
-  <div class="tabs">
-    <div id="tabScanner" class="tab active">Scanner</div>
-    <div id="tabCursor" class="tab">Cursor Predictor</div>
-  </div>
-
-  <!-- SCANNER VIEW -->
-  <div id="viewScanner">
-    <div class="layout">
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div style="font-weight:800">Market Scanner (Signal Provider)</div>
-          <div class="muted">WS: <span id="scannerWs">idle</span></div>
-        </div>
-
-        <label>Markets to scan (comma-separated)</label>
-        <textarea id="marketsList" rows="2">R_10,R_25,R_50,R_75,R_100,1HZ10V,1HZ25V,1HZ50V,1HZ75V,1HZ100V</textarea>
-
-        <div class="row" style="margin-top:8px">
-          <button id="startScan" class="btn primary">Start Scanning</button>
-          <button id="stopScan" class="btn danger">Stop</button>
-        </div>
-
-        <label style="margin-top:8px">Window size (ticks)</label>
-        <input id="scanWindow" value="120"/>
-
-        <label style="margin-top:8px">Transition history length</label>
-        <input id="transLen" value="40"/>
-
-        <label style="margin-top:8px">Confidence threshold (for auto-signal)</label>
-        <input id="scanConf" value="0.6"/>
-
-        <label style="margin-top:8px">Auto-publish signals to Bot</label>
-        <select id="autoPublish"><option value="yes">Yes</option><option value="no">No</option></select>
-
-        <div style="margin-top:12px;font-weight:800">Scanner table</div>
-        <table id="scannerTable"><thead><tr><th>Market</th><th>Pred</th><th>Score</th><th>Ticks</th><th>Send</th></tr></thead><tbody></tbody></table>
-
-        <div style="margin-top:12px;font-weight:800">Scanner log</div>
-        <div class="logs" id="scannerLog"></div>
-      </div>
-
-      <div class="card">
-        <div style="font-weight:800">Signals (from scanner)</div>
-        <div class="muted">Signals created by cursor-style predictor inside scanner per market.</div>
-        <table id="signalsTable"><thead><tr><th>Time</th><th>Market</th><th>Digit</th><th>Score</th><th>Status</th></tr></thead><tbody></tbody></table>
-
-        <div style="margin-top:12px;font-weight:800">Signals log</div>
-        <div class="logs" id="signalsLog"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- CURSOR PREDICTOR VIEW -->
-  <div id="viewCursor" style="display:none">
-    <div class="layout">
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div style="font-weight:800">Cursor Predictor (Real-time)</div>
-          <div class="muted">WS: <span id="cursorWs">idle</span></div>
-        </div>
-
-        <label>Market (single)</label>
-        <select id="cursorMarket">
-          <option>R_10</option><option>R_25</option><option>R_50</option><option>R_75</option><option selected>R_100</option>
-          <option>1HZ10V</option><option>1HZ25V</option><option>1HZ50V</option>
-        </select>
-
-        <div style="display:flex;gap:8px;margin-top:8px">
-          <button id="startCursor" class="btn primary">Start Cursor</button>
-          <button id="stopCursor" class="btn danger">Stop</button>
-        </div>
-
-        <label style="margin-top:8px">Model window (ticks)</label>
-        <input id="cursorWindow" value="80"/>
-
-        <label style="margin-top:8px">Transition memory length</label>
-        <input id="cursorTransLen" value="40"/>
-
-        <label style="margin-top:8px">Auto-Trade predicted digit</label>
-        <select id="cursorAutoTrade"><option value="no">No</option><option value="yes">Yes</option></select>
-
-        <label style="margin-top:8px">Stake</label>
-        <input id="cursorStake" value="1"/>
-
-        <label style="margin-top:8px">Throttle ms</label>
-        <input id="cursorThrottle" value="1200"/>
-
-        <div style="margin-top:12px;font-weight:800">Cursor visualizer</div>
-        <div id="digitsRow"></div>
-
-        <div style="margin-top:12px;font-weight:800">Cursor signals</div>
-        <table id="cursorSignalsTable"><thead><tr><th>Time</th><th>Digit</th><th>Score</th><th>Action</th></tr></thead><tbody></tbody></table>
-
-        <div style="margin-top:12px;font-weight:800">Cursor log</div>
-        <div class="logs" id="cursorLog"></div>
-      </div>
-
-      <div class="card">
-        <div style="font-weight:800">Bot (trading panel)</div>
-        <label>Deriv API Token (DEMO)</label>
-        <input id="botToken" placeholder="Paste DERIV DEMO token"/>
-
-        <div style="display:flex;gap:8px;margin-top:8px">
-          <button id="botAuth" class="btn primary">Authorize</button>
-          <button id="botClear" class="btn">Clear</button>
-        </div>
-
-        <label style="margin-top:8px">Auto-accept incoming signals</label>
-        <select id="botAutoAccept"><option value="yes">Yes</option><option value="no">No</option></select>
-
-        <div style="margin-top:8px;font-weight:700">Open Trades</div>
-        <table id="openTable"><thead><tr><th>ID</th><th>Market</th><th>Barrier</th><th>Stake</th></tr></thead><tbody></tbody></table>
-
-        <div style="margin-top:8px;font-weight:700">Closed Trades</div>
-        <table id="closedTable"><thead><tr><th>ID</th><th>Market</th><th>Result</th><th>Payout</th></tr></thead><tbody></tbody></table>
-
-        <div style="margin-top:12px;font-weight:700">Bot log</div>
-        <div class="logs" id="botLog"></div>
-      </div>
-    </div>
-  </div>
-</main>
-
-<div id="cursor" aria-hidden="true"></div>
-
-<script>
-/* ================= COMMON HELPERS ================= */
-const bc = new BroadcastChannel('astark_channel'); // cross-tab (same page) signal bus
-function now(){ return new Date().toLocaleTimeString(); }
-function logInto(el, msg){ el.innerHTML = `[${now()}] ${msg}\n` + el.innerHTML; }
-function safeNum(v, fallback=0){ const n = Number(v); return Number.isFinite(n)?n:fallback; }
-
-/* ================= TAB SWITCH ================= */
-document.getElementById('tabScanner').addEventListener('click', ()=>switchTab('scanner'));
-document.getElementById('tabCursor').addEventListener('click', ()=>switchTab('cursor'));
-function switchTab(t){
-  document.getElementById('viewScanner').style.display = t==='scanner' ? '' : 'none';
-  document.getElementById('viewCursor').style.display = t==='cursor' ? '' : 'none';
-  document.getElementById('tabScanner').classList.toggle('active', t==='scanner');
-  document.getElementById('tabCursor').classList.toggle('active', t==='cursor');
+  cursorState.ws.onmessage = (m)=>{ let data; try{ data=JSON.parse(m.data);}catch(e){return;} if(data.msg_type==='tick'&&data.tick) handleCursorTick(data.tick); if(data.error) logInto(cursorLog,'API error:'+JSON.stringify(data.error)); };
 }
 
-/* ================== SCANNER IMPLEMENTATION ================== */
-const scannerState = {
-  ws: null,
-  running: false,
-  markets: [],
-  perMarket: {}, // symbol -> {history, transCounts, tickCount}
-  rotIndex:0
-};
-const scannerTableBody = document.querySelector('#scannerTable tbody');
-const scannerLog = document.getElementById('scannerLog');
-const signalsTable = document.querySelector('#signalsTable tbody');
-const signalsLog = document.getElementById('signalsLog');
-
-document.getElementById('startScan').addEventListener('click', () => {
-  const raw = document.getElementById('marketsList').value.trim();
-  if(!raw) return alert('Enter at least one market symbol');
-  scannerState.markets = raw.split(',').map(s=>s.trim()).filter(Boolean);
-  scannerState.window = Math.max(10, safeNum(document.getElementById('scanWindow').value,120));
-  scannerState.transLen = Math.max(10, safeNum(document.getElementById('transLen').value,40));
-  scannerState.conf = Math.max(0, Math.min(1, safeNum(document.getElementById('scanConf').value,0.6)));
-  startScanner();
-});
-document.getElementById('stopScan').addEventListener('click', stopScanner);
-
-function startScanner(){
-  if(scannerState.running) { logInto(scannerLog,'Scanner already running'); return; }
-  scannerState.perMarket = {};
-  for(const m of scannerState.markets){
-    scannerState.perMarket[m] = { history: [], transCounts: Array.from({length:10}, ()=>Array(10).fill(0)), tickCount:0, lastDigit:null };
-  }
-  const appId = '1089';
-  scannerState.ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${appId}`);
-  document.getElementById('scannerWs').innerText = 'connecting';
-  scannerState.ws.onopen = ()=>{ document.getElementById('scannerWs').innerText='connected'; logInto(scannerLog,'Scanner WS connected'); subscribeScannerMarkets(); scannerState.running=true; };
-  scannerState.ws.onclose = ()=>{ document.getElementById('scannerWs').innerText='closed'; logInto(scannerLog,'Scanner WS closed'); scannerState.running=false; };
-  scannerState.ws.onerror = (e)=> logInto(scannerLog,'Scanner WS error: '+(e?.message||JSON.stringify(e)));
-  scannerState.ws.onmessage = (m)=> {
-    let data; try{ data = JSON.parse(m.data); }catch(e){ return; }
-    if(data.msg_type === 'tick' && data.tick){ handleScannerTick(data.tick); }
-    if(data.error) logInto(scannerLog,'API error: '+JSON.stringify(data.error));
-  };
+function subscribeCursor(){
+  try{ cursorState.ws.send(JSON.stringify({ ticks: cursorState.market, subscribe:1 })); logInto(cursorLog,'Subscribed to '+cursorState.market); }catch(e){ logInto(cursorLog,'Subscribe fail'); }
 }
 
-/* Subscribe individually; note: Deriv's tick responses don't include market symbol in payload reliably in simple demo; we use rotating mapping to assign ticks to markets — it's a practical limitation of simple frontend-only scanning.
-   This approach works acceptably for demo/experimentation, but for production you'd need a backend that tags subscriptions. */
-function subscribeScannerMarkets(){
-  for(const m of scannerState.markets){
-    try{ scannerState.ws.send(JSON.stringify({ ticks: m, subscribe: 1 })); logInto(scannerLog,'Subscribed to '+m); }catch(e){ logInto(scannerLog,'Subscribe fail '+m); }
-  }
-  renderScannerTable();
-}
-
-/* rotating tick assignment: process incoming ticks in round-robin */
-function handleScannerTick(tick){
+function handleCursorTick(tick){
   const quote = tick.quote;
-  // assign to market by rot index
-  const markets = scannerState.markets;
-  if(!markets.length) return;
-  const sym = markets[scannerState.rotIndex % markets.length];
-  scannerState.rotIndex++;
-  processScannerMarketTick(sym, quote);
-}
-
-function processScannerMarketTick(sym, quote){
-  const st = scannerState.perMarket[sym];
-  if(!st) return;
   const d = Number(String(quote).slice(-1));
-  st.tickCount++;
-  // update transition counts from lastDigit -> d
-  if(st.lastDigit !== null){
-    st.transCounts[st.lastDigit][d] = (st.transCounts[st.lastDigit][d]||0) + 1;
+  // update transitions
+  if(cursorState.lastDigit !== null){
+    cursorState.transCounts[cursorState.lastDigit][d] = (cursorState.transCounts[cursorState.lastDigit][d]||0) + 1;
   }
-  st.lastDigit = d;
-  st.history.push(d);
-  if(st.history.length > scannerState.window) st.history.shift();
-  // compute predicted next digit: from lastDigit, choose digit with highest transition count
-  const last = st.lastDigit;
-  let pred = null;
-  let score = 0;
-  if(last !== null){
-    const row = st.transCounts[last];
-    let total = row.reduce((a,b)=>a+b,0) || 1;
-    for(let x=0;x<10;x++){
-      const s = row[x] / total; // relative frequency of last->x
-      if(s > score){ score = s; pred = x; }
+  cursorState.lastDigit = d;
+  cursorState.history.push(d);
+  if(cursorState.history.length > cursorState.window) cursorState.history.shift();
+  // compute prediction from lastDigit
+  let pred = null, score = 0;
+  if(cursorState.lastDigit !== null){
+    const row = cursorState.transCounts[cursorState.lastDigit];
+    const tot = row.reduce((a,b)=>a+b,0) || 1;
+    for(let x=0;x<10;x++){ const s = row[x]/tot; if(s>score){score=s; pred=x;} }
+  }
+  updateCursorUI(d, pred, score);
+  if(pred !== null){
+    const sig = { time: new Date().toISOString(), source:'cursor', market: cursorState.market, digit: pred, score: Number((score*100).toFixed(2)) };
+    createCursorSignal(sig);
+    // optionally auto-publish to bot
+    if(document.getElementById('cursorAutoTrade').value === 'yes'){
+      bc.postMessage({ type:'signal', source:'cursor', signal: sig });
+      logInto(cursorLog, `Auto-published cursor signal to Bot: ${sig.market} ${sig.digit} ${sig.score}%`);
     }
   }
-  // update UI
-  updateScannerRow(sym, pred, score, st.tickCount);
-  // auto-signal logic: if score >= threshold and pred exists, create a signal
-  if(pred !== null && score >= scannerState.conf){
-    const sig = { time: new Date().toISOString(), market: sym, digit: pred, score: Number((score*100).toFixed(2)) };
-    createScannerSignal(sig);
-  }
 }
 
-function updateScannerRow(sym, pred, score, ticks){
-  let row = document.querySelector(`#scannerTable tbody tr[data-sym="${sym}"]`);
-  if(!row){
-    row = document.createElement('tr'); row.dataset.sym = sym;
-    row.innerHTML = `<td>${sym}</td><td class="pred">-</td><td class="score">-</td><td class="ticks">-</td><td><button class="sendBtn btn">Send</button></td>`;
-    scannerTableBody.appendChild(row);
-    row.querySelector('.sendBtn').addEventListener('click', ()=>{
-      if(pred===null) return;
-      const sig = { time: new Date().toISOString(), market: sym, digit: pred, score: Number((score*100).toFixed(2)) };
-      createScannerSignal(sig, true);
-    });
+function updateCursorUI(lastTick, pred, score){
+  // update bars based on probabilities from last digit (if present)
+  const row = cursorState.lastDigit!==null? cursorState.transCounts[cursorState.lastDigit] : null;
+  for(let i=0;i<10;i++){
+    const cell = digitsRow.children[i];
+    const bar = cell.querySelector('.digitBar');
+    let val = 3;
+    if(row){
+      const tot = row.reduce((a,b)=>a+b,0) || 1;
+      const p = row[i]/tot;
+      val = Math.max(3, Math.round(p*100));
+    }
+    bar.style.height = val + '%';
+    bar.style.background = (i===pred) ? '#2ee6a8' : '#0ea5d9';
+    cell.classList.toggle('activeDigit', i===pred);
   }
-  row.querySelector('.pred').innerText = pred===null?'-':pred;
-  row.querySelector('.score').innerText = (score? (score*100).toFixed(1)+'%':'-');
-  row.querySelector('.ticks').innerText = ticks;
+  // move cursorVis to predicted digit
+  if(pred !== null){
+    const el = digitsRow.children[pred].getBoundingClientRect();
+    cursorVis.style.transform = `translate(${el.left+el.width/2}px, ${el.top+el.height/2}px)`;
+  }
+  logInto(cursorLog, `Tick ${lastTick} → Pred ${pred} (${(score*100).toFixed(1)}%)`);
 }
 
-/* create scanner signal and optionally publish to Bot via BroadcastChannel (auto or manual) */
-function createScannerSignal(sig, manual=false){
-  // add to signals table
+function createCursorSignal(sig){
   const tr = document.createElement('tr');
-  tr.innerHTML = `<td>${(new Date(sig.time)).toLocaleTimeString()}</td><td>${sig.market}</td><td>${sig.digit}</td><td>${sig.score}%</td><td>${manual? 'manual':'auto'}</td>`;
-  signalsTable.prepend(tr);
-  logInto(signalsLog, `Signal: ${sig.market} → ${sig.digit} (${sig.score}%) ${manual?'(manual)':''}`);
-  const auto = document.getElementById('autoPublish').value === 'yes';
-  if(auto || manual){
-    bc.postMessage({ type:'signal', source:'scanner', signal: sig });
-    logInto(scannerLog, `Published signal to Bot: ${sig.market} ${sig.digit} ${sig.score}%`);
-  }
+  tr.innerHTML = `<td>${(new Date(sig.time)).toLocaleTimeString()}</td><td>${sig.digit}</td><td>${sig.score}%</td><td>sent</td>`;
+  cursorSignalsTable.prepend(tr);
+  logInto(cursorLog, `Cursor signal: ${sig.market} -> ${sig.digit} (${sig.score}%)`);
 }
 
-function stopScanner(){
-  if(scannerState.ws){ try{ scannerState.ws.close(); }catch(e){} }
-  scannerState.running = false;
-  document.getElementById('scannerWs').innerText = 'stopped';
-  logInto(scannerLog, 'Scanner stopped');
+function stopCursor(){
+  if(cursorState.ws){ try{ cursorState.ws.close(); }catch(e){} }
+  cursorState.running=false; cursorWsEl.innerText='stopped'; logInto(cursorLog,'Cursor stopped');
 }
 
-function renderScannerTable(){
-  scannerTableBody.innerHTML = '';
-  for(const m of scannerState.markets){
-    const r = document.createElement('tr'); r.dataset.sym = m;
-    r.innerHTML = `<td>${m}</td><td class="pred">-</td><td class="score">-</td><td class="ticks">0</td><td><button class="sendBtn btn">Send</button></td>`;
-    scannerTableBody.appendChild(r);
-    r.querySelector('.sendBtn').addEventListener('click', ()=>{
-      const st = scannerState.perMarket[m];
-      if(!st) return;
-      // compute pred quickly
-      let pred=null, score=0;
-      if(st.lastDigit !== null){
-        const row = st.transCounts[st.lastDigit];
-        const total = row.reduce((a,b)=>a+b,0) || 1;
-        for(let x=0;x<10;x++){ const s=row[x]/total; if(s>score){score=s; pred=x;} }
-      }
-      if(pred === null) return alert('No prediction available yet');
-      const sig = { time: new Date().toISOString(), market: m, digit: pred, score: Number((score*100).toFixed(2)) };
-      createScannerSignal(sig, true);
-    });
-  }
-}
+/* =========================
+   Bot (accept signals & trade)
+   ========================= */
+const bot = { ws:null, token:null, authorized:false, lastBuyTs:0, open:{} };
+const botLog = document.getElementById('botLog');
+const openTable = document.querySelector('#openTable tbody');
+const closedTable = document.querySelector('#closedTable tbody');
 
-/* ================= CURSOR PREDICTOR IMPLEMENTATION ================= */
-const cursorState = {
-  ws: null,
-  running: false,
-  market: null,
-  history: [],
-  transCounts: Array.from({length:10}, ()=>Array(10).fill(0)),
-  lastDigit: null,
-  rot:0
-};
-const digitsRow = document.getElementById('digitsRow');
-const cursorLog = document.getElementById('cursorLog');
-const cursorSignalsTable = document.querySelector('#cursorSignalsTable tbody');
-const cursorWsEl = document.getElementById('cursorWs');
-const cursorElement = document.getElementById('cursor');
-
-/* build digit cells for visual */
-for(let i=0;i<10;i++){
-  const cell = document.createElement('div'); cell.className='digitCell'; cell.dataset.d = i;
-  const spark = document.createElement('div'); spark.className='digitSpark'; spark.innerText = i;
-  const bar = document.createElement('div'); bar.className='digitBar'; bar.innerText = i;
-  const lbl = document.createElement('div'); lbl.className='digitLabel'; lbl.innerText = i;
-  cell.appendChild(spark); cell.appendChild(bar); cell.appendChild(lbl);
-  digitsRow.appendChild(cell);
-}
-
-document.getElementById('startCursor').addEventListener('click', ()=>{
-  cursorState.market = document.getElementById('cursorMarket').value;
-  cursorState.window = Math.max(10, safeNum(document.getElementById('cursorWindow').value,80));
-  cursorState.transLen = Math.max(10, safeNum(document.getElementById('cursorTransLen').value,40));
-  startCursor();
+document.getElementById('botAuth').addEventListener('click', ()=>{
+  const t = document.getElementById('botToken').value.trim();
+  if(!t) return alert('Paste DERIV DEMO token');
+  bot.token = t; connectBotWS();
 });
-document.getElementById('stopCursor').addEventListener('click', stopCursor);
+document.getElementById('botClear').addEventListener('click', ()=>{ document.getElementById('botToken').value=''; bot.token=null; logInto(botLog,'Token cleared'); });
 
-/* Connect to Deriv and subscribe to one market; here we expect tick data (rotating not needed) */
-function startCursor(){
-  if(cursorState.running) { logInto(cursorLog,'Cursor already running'); return; }
-  cursorState.history = []; cursorState.transCounts = Array.from({length:10}, ()=>Array(10).fill(0)); cursorState.lastDigit = null;
-  const appId = '1089';
-  cursorState.ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${appId}`);
-  cursorWsEl.innerText = 'connecting';
-  cursorState.ws.onopen = ()=>{ cursorWsEl.innerText='connected'; logInto(cursorLog,'Cursor WS connected'); subscribeCursorMarket(); cursorState.running=true; };
-  cursorState.ws.onclose = ()=>{ cursorWsEl.innerText='closed'; logInto(cursorLog,'Cursor WS closed'); cursorState.running=false; };
-  cursorState.ws.onerror = (e)=> logInto(cursorLog,'Cursor WS error: '+(e?.message||JSON.stringify(e)));
-  cursorState.ws.onmessage = (m)=> {
-    let data; try{ data = JSON.parse(m.data); }catch(e){ return; }
-    if(data.msg_type === 'tick' && data.tick){ handleCursorTick(data.tick); }
-    if(data.error) logInto(cursorLog,'API error: '+JSON.stringify(data.error
+function connectBotWS(){
+  if(bot.ws && bot.ws.readyState===1) return;
+  const appId='1089';
+  bot.ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${appId}`);
+  logInto(botLog,'Bot WS connecting...');
+  bot.ws.onopen = ()=>{ logInto(botLog,'Bot WS connected'); if(bot.token) authorizeBot(); };
+  bot.ws.onclose = ()=>{ logInto(botLog,'Bot WS closed'); bot.authorized=false; };
+  bot.ws.onerror = (e)=> logInto(botLog,'Bot WS error: '+(e?.message||JSON.stringify(e)));
+  bot.ws.onmessage = (m)=>{ let data; try{data=JSON.parse(m.data);}catch(e){return;} if(data.msg_type==='authorize'){ if(data.authorize && data.authorize.loginid){ bot.authorized=true; logInto(botLog,'Authorized '+data.authorize.loginid); } else { bot.authorized=false; logInto(botLog,'Auth failed'); } } if(data.msg_type==='buy'&&data.buy) handleBuyResponse(data.buy); if(data.msg_type==='proposal_open_contract'&&data.proposal_open_contract) handleOpenContract(data.proposal_open_contract); if(data.error) logInto(botLog,'API error: '+JSON.stringify(data.error)); };
+}
+
+function authorizeBot(){
+  if(!bot.ws || bot.ws.readyState!==1){ connectBotWS(); return; }
+  try{ bot.ws.send(JSON.stringify({ authorize: bot.token })); logInto(botLog,'Authorize sent'); }catch(e){ logInto(botLog,'Auth send failed'); }
+}
+
+/* Accept signals from BroadcastChannel */
+bc.onmessage = (ev) => {
+  if(!ev.data) return;
+  if(ev.data.type === 'signal' && ev.data.signal){
+    const sig = ev.data.signal;
+    logInto(botLog, `Signal received (${ev.data.source||'unknown'}): ${sig.market}→${sig.digit} (${sig.score}%)`);
+    addBotSignalRow(sig);
+    const autoAccept = document.getElementById('botAutoAccept').value === 'yes';
+    const throttle = safeNum(document.getElementById('cursorThrottle').value, 1200);
+    if(autoAccept && (Date.now() - bot.lastBuyTs >= throttle)){
+      // perform buy
+      placeBotBuy(sig.market, sig.digit, safeNum(document.getElementById('cursorStake').value,1));
+    } else {
+      logInto(botLog, 'Signal not auto-traded (autoAccept off or throttle).');
+    }
+  }
+};
+
+function addBotSignalRow(sig){
+  const el = document.querySelector('#botSignalsTable tbody');
+  if(!el) return;
+  const tr = document.createElement('tr'); tr.innerHTML = `<td>${(new Date(sig.time)).toLocaleTimeString()}</td><td>${sig.market}</td><td>${sig.digit}</td><td>${sig.score}%</td><td>-</td>`;
+  // create table if missing
+  try{ document.querySelector('#botSignalsTable tbody').prepend(tr); }catch(e){}
+}
+
+/* Place digit match buy */
+function placeBotBuy(symbol, digit, stake){
+  if(!bot.ws || bot.ws.readyState!==1){ logInto(botLog,'Bot WS not connected — connecting'); connectBotWS(); return; }
+  if(!bot.authorized){ logInto(botLog,'Bot not authorized — click Authorize'); return; }
+  const params = { contract_type:'DIGITMATCH', symbol, amount: stake, basis:'stake', duration:1, duration_unit:'t', currency:'USD', barrier:String(digit) };
+  const buyReq = { buy:1, subscribe:1, price: stake, parameters: params };
+  try{
+    bot.ws.send(JSON.stringify(buyReq));
+    bot.lastBuyTs = Date.now();
+    logInto(botLog, `Buy sent: ${symbol} barrier=${digit} stake=${stake}`);
+  }catch(e){ logInto(botLog,'Buy send failed: '+(e?.message||e)); }
+}
+
+/* Buy responses */
+function handleBuyResponse(buy){
+  const cid = buy.contract_id || ('cid_'+Date.now());
+  bot.open[cid] = { id: cid, market: buy.symbol||'', barrier: buy.barrier || buy.parameters?.barrier || '', stake: buy.buy_price || buy.price || 0 };
+  addOpenRow(bot.open[cid]);
+  logInto(botLog, 'Buy accepted cid=' + cid);
+  try{ bot.ws.send(JSON.stringify({ proposal_open_contract:1, contract_id: cid })); }catch(e){}
+}
+function handleOpenContract(poc){
+  if(poc.is_sold){
+    const cid = poc.contract_id;
+    const payout = typeof poc.profit !== 'undefined' ? poc.profit : (poc.payout||0);
+    moveToClosed({ contract_id: cid, contract_type: poc.contract_type, barrier: poc.barrier||null }, { status: poc.status, payout });
+    logInto(botLog, `Contract closed cid=${cid} profit=${payout}`);
+  }
+}
+function addOpenRow(tr){
+  const row = document.createElement('tr'); row.id = 'open_'+tr.id;
+  row.innerHTML = `<td>${tr.id}</td><td>${tr.market}</td><td>${tr.barrier}</td><td>${tr.stake}</td>`;
+  openTable.prepend(row);
+}
+function moveToClosed(tr, res){
+  const r = document.getElementById('open_'+tr.contract_id); if(r) r.remove();
+  const trEl = document.createElement('tr'); const payout = Number(res.payout||0); const cls = payout>=0 ? 'good' : 'bad';
+  trEl.innerHTML = `<td>${tr.contract_id}</td><td>${tr.contract_type}</td><td class="${cls}">${res.status||''}</td><td class="${cls}">${payout}</td>`;
+  closedTable.prepend(trEl);
+}
+
+/* initial ready logs */
+logInto(scannerLog, 'Ready — choose Scanner or Cursor Predictor and test with a DEMO token.');
+logInto(cursorLog, 'Cursor panel ready.');
+logInto(botLog, 'Bot panel ready. Paste DERIV DEMO token and authorize to enable auto-trade.');
+
+</script>
+</body>
+</html>
