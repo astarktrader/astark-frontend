@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>ASTARK Speedbot</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;margin:0;padding:0;background:#0b0e11;color:#eee}
+    header{background:#111;padding:10px;text-align:center;font-size:20px;font-weight:700}
+    main{display:flex;flex-wrap:wrap;padding:10px;gap:10px}
+    .card{background:#1a1d24;padding:10px;border-radius:6px;flex:1;min-width:300px;max-width:600px}
+    label{display:block;margin-top:8px;font-weight:600}
+    input,select,button{width:100%;padding:6px;margin-top:4px;border-radius:4px;border:none}
+    button{cursor:pointer;font-weight:700}
+    .btn.primary{background:#007bff;color:#fff}
+    .btn{background:#333;color:#fff}
+    table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+    th,td{border:1px solid #444;padding:4px;text-align:center}
+    .logs{background:#000;color:#0f0;height:120px;overflow:auto;font-family:monospace;font-size:12px;padding:4px;margin-top:4px}
+    .digit-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;margin-top:10px}
+    .digit{background:#222;padding:10px;text-align:center;border-radius:4px;font-weight:700}
+    .digit.active{background:#007bff;color:#fff}
+    .prob-table{margin-top:10px;width:100%;border-collapse:collapse}
+    .prob-table th,.prob-table td{border:1px solid #444;padding:4px;text-align:center;font-size:12px}
+  </style>
+</head>
+<body>
+<header>⚡ ASTARK Speedbot (Volatility Indices)</header>
+<main>
+
+  <!-- Cursor & Probability Predictor -->
+  <div class="card">
+    <div style="font-weight:800">Digit Predictor</div>
+
+    <label>Market (Volatility Index)</label>
+    <select id="cursorSymbol">
+      <option value="R_10">Volatility 10</option>
+      <option value="R_25">Volatility 25</option>
+      <option value="R_50">Volatility 50</option>
+      <option value="R_75">Volatility 75</option>
+      <option value="R_100">Volatility 100</option>
+      <option value="RDBEAR">Bear Market</option>
+      <option value="RDBULL">Bull Market</option>
+    </select>
+
+    <label>Confidence Threshold (%)</label>
+    <input id="confidenceThreshold" type="number" value="65" min="0" max="100"/>
+
+    <label>Tick History Length (N)</label>
+    <input id="tickHistoryLength" type="number" value="50" min="10" max="200"/>
+
+    <label>Auto-Trade with Bot</label>
+    <select id="cursorAuto">
+      <option value="yes">Yes</option>
+      <option value="no">No</option>
+    </select>
+
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button id="cursorStart" class="btn primary">Start</button>
+      <button id="cursorStop" class="btn">Stop</button>
+    </div>
+
+    <!-- Cursor highlight -->
+    <div class="digit-grid" id="digitGrid"></div>
+
+    <!-- Probability Table -->
+    <div style="margin-top:12px;font-weight:700">Digit Probabilities</div>
+    <table class="prob-table" id="probTable">
+      <thead><tr><th>Digit</th><th>Probability %</th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <div style="margin-top:12px;font-weight:700">Predictor log</div>
+    <div class="logs" id="cursorLog"></div>
+  </div>
+
+  <!-- Bot Panel -->
+  <div class="card">
+    <div style="font-weight:800">Bot (Trading Panel)</div>
+
+    <label>Deriv API Token (DEMO)</label>
+    <input id="botToken" placeholder="Paste DERIV DEMO token here"/>
+
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button id="botAuth" class="btn primary">Authorize</button>
+      <button id="botClear" class="btn">Clear</button>
+    </div>
+
+    <label>Contract Type</label>
+    <select id="botContract">
+      <option value="DIGITMATCH">Digit Match</option>
+      <option value="DIGITDIFF">Digit Differs</option>
+      <option value="DIGITEVEN">Digit Even</option>
+      <option value="DIGITODD">Digit Odd</option>
+      <option value="DIGITOVER">Digit Over</option>
+      <option value="DIGITUNDER">Digit Under</option>
+    </select>
+
+    <label>Stake Amount (USD)</label>
+    <input id="botStake" type="number" value="1" min="0.35" step="0.01"/>
+
+    <div style="margin-top:12px;font-weight:700">Open Trades</div>
+    <table id="openTable"><thead><tr><th>ID</th><th>Market</th><th>Barrier</th><th>Stake</th></tr></thead><tbody></tbody></table>
+
+    <div style="margin-top:12px;font-weight:700">Closed Trades</div>
+    <table id="closedTable"><thead><tr><th>ID</th><th>Market</th><th>Result</th><th>Payout</th></tr></thead><tbody></tbody></table>
+
+    <div style="margin-top:12px;font-weight:700">Buy Debug (raw request)</div>
+    <div class="logs" id="buyDebug"></div>
+
+    <div style="margin-top:12px;font-weight:700">Bot log</div>
+    <div class="logs" id="botLog"></div>
+  </div>
+
+</main>
+
+<script>
+function logInto(el,msg){
+  const d=new Date().toLocaleTimeString();
+  el.innerText=`${d} ${msg}\n`+el.innerText;
+}
+
+/* ===== Predictor ===== */
+let cursorWS=null; let cursorRun=false;
+const cursorLog=document.getElementById('cursorLog');
+const digitGrid=document.getElementById('digitGrid');
+const probTable=document.getElementById('probTable').querySelector('tbody');
+for(let i=0;i<10;i++){
+  const d=document.createElement('div');
+  d.className='digit'; d.innerText=i;
+  digitGrid.appendChild(d);
+  const row=document.createElement('tr');
+  row.innerHTML=`<td>${i}</td><td id="prob-${i}">0%</td>`;
+  probTable.appendChild(row);
+}
+
+let tickHistory=[];
+
+function connectCursorWS(symbol){
+  cursorWS=new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=1089");
+  cursorWS.onopen=()=>{ logInto(cursorLog,'Connected. Subscribing '+symbol);
+    cursorWS.send(JSON.stringify({ticks:symbol,subscribe:1}));
+  };
+  cursorWS.onmessage=(e)=>{
+    const data=JSON.parse(e.data);
+    if(data.msg_type==='tick' && data.tick){ handleCursorTick(data.tick); }
+    if(data.error) logInto(cursorLog,'API error: '+JSON.stringify(data.error));
+  };
+}
+function handleCursorTick(tick){
+  const lastDigit=String(tick.quote).slice(-1);
+  tickHistory.push(parseInt(lastDigit));
+
+  const maxTicks=parseInt(document.getElementById('tickHistoryLength').value)||50;
+  if(tickHistory.length>maxTicks) tickHistory.shift();
+
+  // cursor highlight
+  [...digitGrid.children].forEach(d=>d.classList.remove('active'));
+  digitGrid.children[parseInt(lastDigit)].classList.add('active');
+
+  // probability
+  const freq=Array(10).fill(0);
+  tickHistory.forEach(d=>freq[d]++);
+  const probs=freq.map(f=>Math.round((f/tickHistory.length)*100));
+  let bestDigit=0, bestProb=0;
+  for(let i=0;i<10;i++){
+    document.getElementById('prob-'+i).innerText=probs[i]+'%';
+    if(probs[i]>bestProb){ bestProb=probs[i]; bestDigit=i; }
+  }
+
+  logInto(cursorLog,`Tick ${tick.symbol}=${tick.quote} digit=${lastDigit} | Best=${bestDigit} (${bestProb}%)`);
+
+  // auto-trade if confidence >= threshold
+  const threshold=parseInt(document.getElementById('confidenceThreshold').value)||65;
+  if(document.getElementById('cursorAuto').value==='yes' && bestProb>=threshold){
+    const stake=parseFloat(document.getElementById('botStake').value)||1;
+    placeBotBuy(tick.symbol,bestDigit,stake);
+  }
+}
+
+document.getElementById('cursorStart').onclick=()=>{
+  if(cursorRun) return;
+  cursorRun=true; connectCursorWS(document.getElementById('cursorSymbol').value);
+};
+document.getElementById('cursorStop').onclick=()=>{ cursorRun=false; if(cursorWS) cursorWS.close(); };
+
+/* ===== Bot ===== */
+const botLog=document.getElementById('botLog');
+let bot={ws:null,authorized:false};
+
+function connectBotWS(){
+  bot.ws=new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=1089");
+  bot.ws.onopen=()=>{ logInto(botLog,'Bot connected'); };
+  bot.ws.onmessage=(e)=>{
+    const data=JSON.parse(e.data);
+    if(data.msg_type==='authorize'){ bot.authorized=true; logInto(botLog,'Authorized'); }
+    if(data.msg_type==='buy'){ logInto(botLog,'Buy OK '+JSON.stringify(data.buy)); addOpenTrade(data.buy); }
+    if(data.msg_type==='proposal_open_contract'){ handleContract(data.proposal_open_contract); }
+    if(data.error) logInto(botLog,'API error: '+JSON.stringify(data.error));
+  };
+}
+
+document.getElementById('botAuth').onclick=()=>{
+  if(!bot.ws || bot.ws.readyState!==1) connectBotWS();
+  const tok=document.getElementById('botToken').value.trim();
+  if(tok) bot.ws.send(JSON.stringify({authorize:tok}));
+};
+document.getElementById('botClear').onclick=()=>{ botLog.innerText=''; document.getElementById('buyDebug').innerText=''; };
+
+function placeBotBuy(symbol,digit,stake){
+  if(!bot.ws || bot.ws.readyState!==1){ logInto(botLog,'Bot WS not connected'); connectBotWS(); return; }
+  if(!bot.authorized){ logInto(botLog,'Bot not authorized'); return; }
+
+  const contractType=document.getElementById('botContract').value;
+  const params={
+    contract_type:contractType,
+    symbol,
+    amount:stake,
+    basis:'stake',
+    duration:1,
+    duration_unit:'t',
+    currency:'USD'
+  };
+  if(["DIGITMATCH","DIGITDIFF","DIGITOVER","DIGITUNDER"].includes(contractType)){
+    params.barrier=String(digit);
+  }
+  const buyReq={buy:1,subscribe:1,price:stake,parameters:params};
+  document.getElementById('buyDebug').innerText=JSON.stringify(buyReq,null,2);
+
+  try{
+    bot.ws.send(JSON.stringify(buyReq));
+    logInto(botLog,`Buy sent: ${symbol} ${contractType} barrier=${params.barrier||''} stake=${stake}`);
+  }catch(e){
+    logInto(botLog,'Buy failed: '+e.message);
+  }
+}
+
+function addOpenTrade(buy){
+  const row=document.createElement('tr');
+  row.innerHTML=`<td>${buy.contract_id}</td><td>${buy.symbol}</td><td>${buy.barrier||''}</td><td>${buy.buy_price}</td>`;
+  document.querySelector('#openTable tbody').appendChild(row);
+}
+function handleContract(c){
+  if(c.is_sold){
+    const row=document.createElement('tr');
+    row.innerHTML=`<td>${c.contract_id}</td><td>${c.symbol}</td><td>${c.status}</td><td>${c.profit}</td>`;
+    document.querySelector('#closedTable tbody').appendChild(row);
+  }
+}
+</script>
+</body>
+</html>
